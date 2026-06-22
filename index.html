@@ -2521,22 +2521,6 @@ window._firestoreReady = true;
           </div>
           <div id="eduDirFileList" style="display:none;margin-top:10px"></div>
         </div>
-        <div class="profil-section">
-          <div class="profil-section-title">🌐 GitHub JSON Kaynağı</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.6">
-            JSON fasikül dosyaları bu GitHub deposundan otomatik indirilir.
-          </div>
-          <div class="pref-row" style="gap:8px;flex-wrap:wrap">
-            <input type="text" id="githubRepoInput" placeholder="kullanici/repo-adi" style="flex:1;min-width:150px;padding:8px 12px;background:var(--bg-3);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--text-0);font-size:12px;outline:none" oninput="onGithubRepoInput(this.value)">
-            <input type="text" id="githubBranchInput" placeholder="main" value="main" style="width:70px;padding:8px 10px;background:var(--bg-3);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--text-0);font-size:12px;outline:none" oninput="onGithubRepoInput()">
-            <input type="text" id="githubPathInput" placeholder="klasor/ (boş=kök)" style="width:130px;padding:8px 10px;background:var(--bg-3);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--text-0);font-size:12px;outline:none" oninput="onGithubRepoInput()">
-          </div>
-          <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-            <button class="pref-action pref-chip" onclick="saveGithubConfig()" style="background:var(--mat-dim);color:var(--mat)">💾 Kaydet &amp; Yenile</button>
-            <span id="githubConfigStatus" style="font-size:11px;color:var(--text-muted)"></span>
-          </div>
-          <div id="githubConfigHint" style="font-size:11px;color:var(--text-muted);margin-top:6px;word-break:break-all"></div>
-        </div>
         <button class="btn-danger" onclick="doLogout()">Çıkış Yap</button>
         </div>
       </div>
@@ -6799,18 +6783,16 @@ async function selectEduDir(){
     return;
   }
   try{
-    let handle=appState.eduDirHandle;
-    if(handle){
-      const permission=await handle.requestPermission({mode:'read'});
-      if(permission!=='granted') handle=null;
-    }
-    if(!handle) handle=await window.showDirectoryPicker({id:'edu-fasikul-pdf-folder',mode:'read'});
+    const handle=await window.showDirectoryPicker({id:'edu-fasikul-pdf-folder',mode:'read'});
     appState.eduDirHandle = handle;
     appState.eduDirPermission = 'granted';
     await saveEduDirHandle(handle);
     localStorage.setItem('edu_dir_name', handle.name);
     showToast(`✓ "${handle.name}" klasörü bağlandı`,'success');
     await updateEduDirUI();
+    if(document.getElementById('fasikulModal')?.classList.contains('open')){
+      await populateFasikulSourceSelect(document.getElementById('fasikulEditId')?.value || '');
+    }
   } catch(e){
     if(e.name !== 'AbortError') showToast('Klasör seçimi iptal edildi','info');
   }
@@ -6867,6 +6849,18 @@ async function findPdfFileHandle(pdfName){
     if(entry.kind==='file' && entry.name.normalize('NFC').toLocaleLowerCase('tr-TR')===wanted) return entry;
   }
   throw new Error('PDF bulunamadı');
+}
+
+async function hasLocalPdfFile(pdfName){
+  if(!appState.eduDirHandle) return false;
+  try{
+    const permission=await appState.eduDirHandle.queryPermission({mode:'read'});
+    if(permission!=='granted') return false;
+    await findPdfFileHandle(pdfName);
+    return true;
+  }catch(e){
+    return false;
+  }
 }
 
 async function getLocalPdfBlob(fasikul){
@@ -7142,7 +7136,7 @@ function silDers(){
 // ══════════════════════════════
 // FASİKÜL CRUD
 // ══════════════════════════════
-function openFasikulModal(fasikulId){
+async function openFasikulModal(fasikulId){
   const modal = document.getElementById('fasikulModal');
   const silBtn = document.getElementById('fasikulSilBtn');
   document.getElementById('fasikulEditId').value = '';
@@ -7152,7 +7146,7 @@ function openFasikulModal(fasikulId){
   document.getElementById('fasikulThumbInput').value = '';
   document.getElementById('fasikulSinifInput').readOnly = true;
   document.getElementById('fasikulSoruInput').readOnly = true;
-  populateFasikulSourceSelect(fasikulId);
+  await populateFasikulSourceSelect(fasikulId);
   silBtn.style.display = 'none';
   document.getElementById('fasikulModalTitle').textContent = '📚 Fasikül Ekle';
   if(fasikulId && currentDrawerDers){
@@ -7172,7 +7166,7 @@ function openFasikulModal(fasikulId){
   }
   modal.classList.add('open');
 }
-function populateFasikulSourceSelect(editId=''){
+async function populateFasikulSourceSelect(editId=''){
   const select=document.getElementById('fasikulSourceSelect');
   const hint=document.getElementById('fasikulSourceHint');
   if(!select) return;
@@ -7180,20 +7174,28 @@ function populateFasikulSourceSelect(editId=''){
   select.innerHTML='<option value="">GitHub JSON seçin</option>';
   const used=new Set(MANIFEST.dersler.flatMap(d=>d.fasikuller.map(f=>f.id)));
   let availableCount=0;
-  BUNDLED_FASIKUL_SOURCES.forEach(source=>{
-    if(source.dersId!==currentDrawerDers?.id && source.id!==editId) return;
+  const permission = appState.eduDirHandle ? await appState.eduDirHandle.queryPermission({mode:'read'}).catch(()=>null) : null;
+  if(!appState.eduDirHandle || permission!=='granted'){
+    select.disabled=true;
+    if(hint) hint.innerHTML='Önce profil sayfasından PDF klasörünüzü seçin. Liste, yalnızca GitHub JSON + lokal PDF eşleşmesi olan fasikülleri gösterir.';
+    return;
+  }
+  for(const source of BUNDLED_FASIKUL_SOURCES){
+    if(source.dersId!==currentDrawerDers?.id && source.id!==editId) continue;
+    const pdfFound = await hasLocalPdfFile(source.pdf);
+    if(!pdfFound && source.id!==editId) continue;
     const raw=bundledSourceCache.get(source.json);
     const option=document.createElement('option');
     option.value=source.id;
-    option.textContent=`${used.has(source.id)&&source.id!==editId?'✓ ':''}${raw?.ad || source.json.replace(/\.json$/,'')}`;
-    option.disabled=used.has(source.id) && source.id!==editId;
-    if(!option.disabled) availableCount++;
+    option.textContent=`${used.has(source.id)&&source.id!==editId?'✓ ':''}${raw?.ad || source.json.replace(/\.json$/,'')} · PDF bulundu`;
+    option.dataset.exists = used.has(source.id) ? '1' : '0';
+    availableCount++;
     select.appendChild(option);
-  });
+  }
   if(hint){
     hint.textContent = availableCount
-      ? 'GitHub JSON seçin; PDF profilinizde bağlı klasörde aynı adla aranır.'
-      : 'Bu ders için eklenecek yeni GitHub JSON fasikülü kalmadı.';
+      ? 'Sadece GitHub JSON’u ve seçili klasörde aynı PDF’i bulunan fasiküller listelenir.'
+      : 'Seçili PDF klasöründe bu ders için GitHub JSON ile eşleşen PDF bulunamadı.';
   }
   select.disabled = availableCount===0 && !editId;
 }
@@ -7244,6 +7246,26 @@ function saveFasikul(){
     }
     showToast(`${ad} güncellendi ✓`,'success');
   } else {
+    const existing = source ? currentDrawerDers.fasikuller.find(f=>f.id===source.id) : null;
+    if(existing){
+      const konular = sourceRaw?.konular ? normalizeFasikulKonular(sourceRaw.konular) : (existing.konular||[]);
+      existing.ad=ad;
+      existing.thumb=thumb;
+      existing.thumbBg=thumbBg;
+      existing.sinif=sinif;
+      existing.konuSayisi=konular.length;
+      existing.soruSayisi=soruSayisi;
+      existing.konular=konular;
+      existing.jsonFile=source.json;
+      existing.pdfFile=source.pdf;
+      existing.sourceType='bundled';
+      showToast(`${ad} zaten vardı, bilgiler yenilendi ✓`,'success');
+      persistManifest();
+      renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+      renderDerslerGrid();
+      closeFasikulModal();
+      return;
+    }
     const newId = source?.id || ad.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') + '-' + Date.now();
     const konular = sourceRaw?.konular ? normalizeFasikulKonular(sourceRaw.konular) : [];
     currentDrawerDers.fasikuller.push({

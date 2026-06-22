@@ -3209,7 +3209,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // v4: Load persisted data
   loadPersistedData();
+  recalcFasikulProgress();
   updateDashboard();
+  renderDerslerGrid();
 
   // v4: Onboarding flag for first-time users
   if(!localStorage.getItem('edu_onboarded')){
@@ -3355,6 +3357,7 @@ function enterApp(name){
   document.getElementById('profileSub').textContent = `${roleLabel} · ${appState.user.email}`;
   document.getElementById('screen-login').classList.remove('active');
   document.getElementById('screen-app').classList.add('active');
+  recalcFasikulProgress();
   renderDerslerGrid();
   showToast(`Hoş geldin, ${name}! 👋`, 'success');
 
@@ -3680,7 +3683,7 @@ function renderFasikulCards(fasikuller, ders){
     card.className='fasikul-card';
     card.dataset.fasikulId=fas.id;
     card.draggable=sortable;
-    const soruCozulen = Math.floor(fas.soruSayisi * fas.progPct/100);
+    const soruCozulen = fas._solvedCount ?? Math.floor(fas.soruSayisi * fas.progPct/100);
     const renkCSS = fas.temaRenk || ders.renk;
     card.style.setProperty('--fas-accent', renkCSS);
     const hasKonular = fas.konular && fas.konular.length > 0;
@@ -3703,6 +3706,7 @@ function renderFasikulCards(fasikuller, ders){
         <button class="fasikul-card-menu-btn" type="button" aria-label="Fasikül seçenekleri" title="Fasikül seçenekleri" onclick="event.stopPropagation();toggleFasikulMenu(this)">⋮</button>
         <div class="fasikul-card-menu">
           <button onclick="event.stopPropagation();openFasikulModal('${fas.id}')">✏️ Fasikülü düzenle</button>
+          <button onclick="event.stopPropagation();resetFasikulData('${ders.id}','${fas.id}')" style="color:var(--red)">🗑️ Çalışmayı sıfırla</button>
           <div class="fasikul-menu-divider"></div>
           <div class="fasikul-color-label">Kart rengi</div>
           <div class="fasikul-color-grid">
@@ -3908,7 +3912,26 @@ function toggleMobileLeft(){
 function closeReader(){
   saveDrawing();
   stopTimer();
+  // sonCalisma güncelle (fasikül kapatılmadan önce)
+  if(appState.aktifFasikul){
+    const fas = appState.aktifFasikul;
+    const dersId = appState.aktifDers?.id;
+    const fasRef = dersId
+      ? MANIFEST.dersler.find(d=>d.id===dersId)?.fasikuller.find(f=>f.id===fas.id)
+      : null;
+    const target = fasRef || fas;
+    const hasActivity = Object.values(appState.sorularState||{}).some(s=>s&&s.fasikulId===fas.id&&s.answered);
+    if(hasActivity){
+      const now = new Date();
+      const mins = now.getMinutes().toString().padStart(2,'0');
+      target.sonCalisma = `Bugün ${now.getHours()}:${mins}`;
+    }
+  }
+  recalcFasikulProgress();
   updateDashboard();
+  persistManifest();
+  renderDerslerGrid();
+  if(currentDrawerDers) renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
   document.getElementById('reader-overlay').classList.remove('open');
   appState.aktifFasikul = null;
   appState.aktifAltKonu = null;
@@ -7137,6 +7160,103 @@ function updateDashboard(){
 }
 
 // ══════════════════════════════
+// FASİKÜL İLERLEME HESAPLAMA
+// ══════════════════════════════
+function recalcFasikulProgress(){
+  const records = getAnsweredRecords();
+  // Per-fasikül: answered (non-skipped) unique question count
+  const fasikulSolved = {};
+  records.forEach(s => {
+    if (!s.fasikulId || s.skipped) return;
+    fasikulSolved[s.fasikulId] = (fasikulSolved[s.fasikulId] || 0) + 1;
+  });
+  MANIFEST.dersler.forEach(ders => {
+    let dersTotal = 0, dersSolved = 0;
+    ders.fasikuller.forEach(fas => {
+      const solved = fasikulSolved[fas.id] || 0;
+      const total = fas.soruSayisi || 0;
+      fas._solvedCount = solved;
+      fas.progPct = total > 0 ? Math.min(100, Math.round((solved / total) * 100)) : 0;
+      dersTotal += total;
+      dersSolved += solved;
+    });
+    ders.progPct = dersTotal > 0 ? Math.min(100, Math.round((dersSolved / dersTotal) * 100)) : 0;
+  });
+}
+
+// ══════════════════════════════
+// FASİKÜL VERİ SIFIRLAMA
+// ══════════════════════════════
+async function resetFasikulData(dersId, fasId){
+  if(!confirm('Bu fasiküle ait tüm çözüm kayıtları, hatalılar ve çizimler silinecek. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?')) return;
+
+  // sorularState'ten bu fasikülün kayıtlarını temizle
+  const state = appState.sorularState || {};
+  Object.keys(state).forEach(key => {
+    const s = state[key];
+    if ((s && s.fasikulId === fasId) || key.startsWith(fasId + '__')) {
+      delete state[key];
+    }
+  });
+
+  // hatalilar'dan bu fasiküle ait kayıtları temizle
+  const beforeCount = appState.hatalilar.length;
+  appState.hatalilar = appState.hatalilar.filter(h => h.fasikulId !== fasId);
+  const removedCount = beforeCount - appState.hatalilar.length;
+  document.getElementById('hataliCount').textContent = appState.hatalilar.length;
+  document.getElementById('hataliCountBig').textContent = `${appState.hatalilar.length} Soru`;
+
+  // Çizimleri temizle
+  Object.keys(appState.drawings || {}).forEach(key => {
+    if (key.startsWith(fasId + '__') || key.startsWith(fasId + '/')) {
+      delete appState.drawings[key];
+    }
+  });
+
+  // Manifest'te ilerlemeyi sıfırla
+  const ders = MANIFEST.dersler.find(d => d.id === dersId);
+  const fas = ders?.fasikuller.find(f => f.id === fasId);
+  if (fas) {
+    fas.progPct = 0;
+    fas._solvedCount = 0;
+    fas.sonCalisma = '—';
+  }
+
+  // Firestore: bu fasiküle ait cozumler belgelerini sil
+  const uid = _getUserKey();
+  if (uid && window._firestoreReady && window._fsGetDocs && window._fsDeleteDoc) {
+    try {
+      const snap = await window._fsGetDocs(window._fsCollection(window._db, 'kullanicilar', uid, 'cozumler'));
+      const deletes = [];
+      snap.forEach(d => {
+        const c = d.data();
+        if (c.fasikulId === fasId) deletes.push(window._fsDeleteDoc(d.ref));
+      });
+      if (deletes.length) await Promise.all(deletes);
+    } catch(e) { console.warn('Firestore fasikül sıfırlama hatası:', e); }
+
+    // Firestore: bu fasiküle ait cizimler belgelerini sil
+    try {
+      const dSnap = await window._fsGetDocs(window._fsCollection(window._db, 'kullanicilar', uid, 'cizimler'));
+      const dDels = [];
+      dSnap.forEach(d => {
+        const c = d.data();
+        if (c.fasikulId === fasId) dDels.push(window._fsDeleteDoc(d.ref));
+      });
+      if (dDels.length) await Promise.all(dDels);
+    } catch(e) { console.warn('Firestore çizim sıfırlama hatası:', e); }
+  }
+
+  recalcFasikulProgress();
+  updateDashboard();
+  persistData();
+  persistManifest();
+  renderDerslerGrid();
+  if (currentDrawerDers) renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+  showToast(`Fasikül sıfırlandı — ${removedCount} hatalı silindi 🗑️`, 'success');
+}
+
+// ══════════════════════════════
 // HATALIJLAR
 // ══════════════════════════════
 function renderHatalilar(){
@@ -7616,28 +7736,66 @@ async function openHataliInReader(idx){
   showToast('PDF sayfası bulunamadı','error');
 }
 
-function resetAllData(){
-  if(!confirm('Tüm veriler (hatalılar, cevaplar, çizimler, ders/fasikül değişiklikleri ve yüklenen JSON\'lar) silinecek. Emin misiniz?')) return;
+async function resetAllData(){
+  if(!confirm('Tüm veriler (hatalılar, cevaplar, çizimler, ders/fasikül değişiklikleri ve yüklenen JSON\'lar) silinecek. Bu işlem geri alınamaz. Emin misiniz?')) return;
+
+  // 1) Bellek temizle
   appState.hatalilar = [];
   appState.sorularState = {};
   appState.drawings = {};
-  // Tüm konular localStorage key'lerini temizle
+  appState.cloudIstatistik = null;
+  appState.cloudSolutionsLoaded = false;
+
+  // 2) localStorage temizle
   const keysToRemove = [];
   for(let i=0;i<localStorage.length;i++){
     const k = localStorage.key(i);
     if(k && (k.startsWith('edu_konular_') || k==='edu_hatalilar' || k==='edu_sorularState' || k==='edu_manifest_meta' || k==='edu_deleted_dersler')) keysToRemove.push(k);
   }
   keysToRemove.forEach(k=>localStorage.removeItem(k));
-  // Manifest konularını sıfırla
-  MANIFEST.dersler.forEach(d=>d.fasikuller.forEach(f=>{ f.konular=[]; }));
+
+  // 3) Manifest konularını ve ilerlemeyi sıfırla
+  MANIFEST.dersler.forEach(d=>{
+    d.progPct = 0;
+    d.fasikuller.forEach(f=>{ f.konular=[]; f.progPct=0; f._solvedCount=0; f.sonCalisma='—'; });
+  });
   document.getElementById('hataliCount').textContent = '0';
   document.getElementById('hataliCountBig').textContent = '0 Soru';
-  // Ders/fasikül ilerleme yüzdeleri ve "son çalışma" bilgilerini de sıfırla
+
+  // 4) Firestore temizle (cozumler + cizimler alt koleksiyonları + istatistik alanı)
+  const uid = _getUserKey();
+  if(uid && window._firestoreReady){
+    showToast('Bulut verileri siliniyor…','info');
+    try{
+      // cozumler alt koleksiyonu
+      const cSnap = await window._fsGetDocs(window._fsCollection(window._db,'kullanicilar',uid,'cozumler'));
+      const cDels=[]; cSnap.forEach(d=>cDels.push(window._fsDeleteDoc(d.ref)));
+      await Promise.all(cDels);
+      // cizimler alt koleksiyonu
+      const dSnap2 = await window._fsGetDocs(window._fsCollection(window._db,'kullanicilar',uid,'cizimler'));
+      const dDels=[]; dSnap2.forEach(d=>dDels.push(window._fsDeleteDoc(d.ref)));
+      await Promise.all(dDels);
+      // Ana belgedeki istatistik, hatalilar, fasikulIstatistik alanlarını sıfırla
+      const emptyStats = {toplam:0,dogru:0,yanlis:0,bos:0,konular:{}};
+      await window._fsSetDoc(_userDocRef(uid),{
+        hatalilar:[],
+        istatistik: emptyStats,
+        fasikulIstatistik:{},
+        guncelleme: new Date().toISOString()
+      },{merge:true});
+    }catch(e){ console.warn('Firestore sıfırlama hatası:',e); showToast('Bulut temizleme kısmi başarısız','error'); }
+  }
+
+  // 5) Demo modu kapat
   applyDemoMode(false);
   const demoToggle = document.getElementById('demoDataToggle');
   if(demoToggle){ demoToggle.textContent='Kapalı'; demoToggle.classList.add('off'); }
   localStorage.setItem('edu_demo_mode','0');
-  showToast('Tüm veriler sıfırlandı 🗑️', 'success');
+
+  recalcFasikulProgress();
+  updateDashboard();
+  renderDerslerGrid();
+  showToast('Tüm veriler sıfırlandı 🗑️','success');
 }
 
 // ══════════════════════════════
@@ -8782,7 +8940,10 @@ async function loadFromFirestore(){
 
     document.getElementById('hataliCount').textContent=appState.hatalilar.length||0;
     document.getElementById('hataliCountBig').textContent=`${appState.hatalilar.length||0} Soru`;
+    recalcFasikulProgress();
     updateDashboard();
+    persistManifest();
+    renderDerslerGrid();
     if(shouldPersistAfterLoad || Object.values(appState.sorularState||{}).some(s=>s&&s.answered&&!s._synced)) persistData();
     showToast('Veriler buluttan yüklendi ☁️','success');
   }catch(e){ console.warn('Firestore yükleme hatası:',e); }

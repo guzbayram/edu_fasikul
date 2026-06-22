@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr" data-theme="dark">
+<html lang="tr" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -90,6 +90,9 @@ a{color:inherit;text-decoration:none}
 ════════════════════════════════════════════════════════ */
 .screen{position:fixed;inset:0;display:flex;opacity:0;pointer-events:none;transition:opacity .35s}
 .screen.active{opacity:1;pointer-events:all}
+.guest-mode .ders-edit-btn,
+.guest-mode #addDersButton,
+.guest-mode #addFasikulButton{display:none!important}
 
 /* ════════════════════════════════════════════════════════
    LOGIN SCREEN
@@ -2270,7 +2273,7 @@ window._firestoreReady = true;
     </div>
   </div>
   <div class="login-right">
-    <button class="theme-toggle-login icon-btn" onclick="toggleTheme()" id="themeToggle">🌙</button>
+    <button class="theme-toggle-login icon-btn" onclick="toggleTheme()" id="themeToggle">☀️</button>
     <div class="login-form-wrap">
       <h2>Hoş Geldin 👋</h2>
       <p>Dijital çalışma ortamına giriş yap</p>
@@ -2354,7 +2357,7 @@ window._firestoreReady = true;
       <div class="welcome-banner">
         <div class="welcome-text">
           <h1>Merhaba, <span id="welcomeName">Öğrenci</span>! 🎉</h1>
-          <p>Bugün <span id="todayDate"></span> · Hedefin: <span id="goalDisplay">20 soru</span> çözmek</p>
+          <p>Bugün <span id="todayDate"></span> · Hedefin: <span id="goalDisplay">100 soru</span> çözmek</p>
         </div>
         <div class="welcome-emoji">📐</div>
       </div>
@@ -2384,7 +2387,7 @@ window._firestoreReady = true;
 
       <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <span style="display:flex;align-items:center;gap:10px">Derslerim <span id="derslerSayac" style="font-size:13px;font-weight:400;color:var(--text-muted);font-family:var(--font-ui)">6 ders aktif</span></span>
-        <button class="devam-btn" style="background:var(--mat-dim);color:var(--mat);font-size:13px;padding:7px 16px;border-radius:99px;font-weight:600" onclick="openDersModal()">+ Ders Ekle</button>
+        <button class="devam-btn" id="addDersButton" style="background:var(--mat-dim);color:var(--mat);font-size:13px;padding:7px 16px;border-radius:99px;font-weight:600" onclick="openDersModal()">+ Ders Ekle</button>
       </div>
       <div class="dersler-grid" id="derslerGrid"></div>
     </div>
@@ -2446,9 +2449,9 @@ window._firestoreReady = true;
             <div class="profil-name" id="profileName">Demo Kullanıcı</div>
             <div class="profil-sub" id="profileSub">Öğrenci · demo@edufasikuler.com</div>
             <div class="profil-stats-row">
-              <div class="profil-stat"><div class="profil-stat-val" style="color:var(--mat)">142</div><div class="profil-stat-lbl">Soru</div></div>
-              <div class="profil-stat"><div class="profil-stat-val" style="color:var(--orange)">7🔥</div><div class="profil-stat-lbl">Seri</div></div>
-              <div class="profil-stat"><div class="profil-stat-val" style="color:var(--green)">%74</div><div class="profil-stat-lbl">Başarı</div></div>
+              <div class="profil-stat"><div class="profil-stat-val" id="profileSolved" style="color:var(--mat)">0</div><div class="profil-stat-lbl">Soru</div></div>
+              <div class="profil-stat"><div class="profil-stat-val" id="profileStreak" style="color:var(--orange)">0🔥</div><div class="profil-stat-lbl">Seri</div></div>
+              <div class="profil-stat"><div class="profil-stat-val" id="profileAccuracy" style="color:var(--green)">%0</div><div class="profil-stat-lbl">Başarı</div></div>
             </div>
           </div>
           <div class="app-info-card">
@@ -2468,7 +2471,7 @@ window._firestoreReady = true;
           <div class="profil-section-title">⚙️ Tercihler</div>
           <div class="pref-row">
             <span class="pref-label">🌙 Karanlık Tema</span>
-            <button class="pref-action pref-toggle" id="themeTogglePref" onclick="toggleTheme()">Açık</button>
+            <button class="pref-action pref-toggle off" id="themeTogglePref" onclick="toggleTheme()">Kapalı</button>
           </div>
           <div class="pref-row">
             <span class="pref-label">🔊 Cevap Sesi</span>
@@ -2476,13 +2479,13 @@ window._firestoreReady = true;
           </div>
           <div class="pref-row">
             <span class="pref-label">⏭️ Otomatik Sonraki Soru</span>
-            <button class="pref-action pref-toggle off" id="autoNextToggle" onclick="toggleAutoNext(this)">Kapalı</button>
+            <button class="pref-action pref-toggle" id="autoNextToggle" onclick="toggleAutoNext(this)">Açık</button>
           </div>
           <div class="pref-row">
             <span class="pref-label">🎯 Günlük Hedef</span>
             <div class="goal-slider-wrap">
-              <input type="range" min="5" max="100" step="5" value="20" id="goalSlider" oninput="updateGoal(this.value)">
-              <div class="goal-val" id="goalVal">20 soru</div>
+              <input type="range" min="5" max="300" step="5" value="100" id="goalSlider" oninput="updateGoal(this.value)">
+              <div class="goal-val" id="goalVal">100 soru</div>
             </div>
           </div>
         </div>
@@ -2534,7 +2537,7 @@ window._firestoreReady = true;
   <div class="drawer-header">
     <button class="drawer-back" onclick="closeDrawer()">←</button>
     <h3 id="drawerTitle">Matematik Fasikülleri</h3>
-    <button class="devam-btn" style="margin-left:auto;background:var(--mat-dim);color:var(--mat);font-size:12px;padding:6px 13px;border-radius:99px;font-weight:600;white-space:nowrap" onclick="openFasikulModal()">+ Fasikül Ekle</button>
+    <button class="devam-btn" id="addFasikulButton" style="margin-left:auto;background:var(--mat-dim);color:var(--mat);font-size:12px;padding:6px 13px;border-radius:99px;font-weight:600;white-space:nowrap" onclick="openFasikulModal()">+ Fasikül Ekle</button>
   </div>
   <div class="drawer-search">
     <input type="text" id="drawerSearch" placeholder="🔍 Fasikül ara…" oninput="filterFasikuller(this.value)">
@@ -3051,7 +3054,7 @@ const DEMO_SNAPSHOT = MANIFEST.dersler.map(d=>({
 // ══════════════════════════════
 const appState = {
   user: null,
-  theme: 'dark',
+  theme: 'light',
   aktifDers: null,
   aktifFasikul: null,
   aktifKonu: null,
@@ -3087,8 +3090,8 @@ const appState = {
   fabricCanvas: null,
   preferences: {
     sound: true,
-    autoNext: false,
-    goal: 20
+    autoNext: true,
+    goal: 100
   },
   avatarEmojis: ['🎓','🧑‍🎓','👨‍🎓','👩‍🎓','🦁','🐯','🦊','🦅','🚀','⚡','🔥','🎯','💡','🌟','🏆','🎮','🤖','👾','🧠','🌈'],
   avatarIdx: 0,
@@ -3100,6 +3103,14 @@ const appState = {
 // INIT
 // ══════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
+  // Yeni standartları mevcut cihazlara da bir kez uygula; sonraki kullanıcı
+  // değişiklikleri normal biçimde saklanmaya devam eder.
+  if(!localStorage.getItem('edu_defaults_v5')){
+    localStorage.setItem('edu_theme','light');
+    localStorage.setItem('edu_demo_mode','0');
+    localStorage.setItem('edu_preferences',JSON.stringify({sound:true,autoNext:true,goal:100}));
+    localStorage.setItem('edu_defaults_v5','1');
+  }
   renderMathSymbols();
   renderStreakDots();
   loadManifestMeta();
@@ -3108,17 +3119,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   await restoreEduDirHandle();
   initGithubConfigUI();
   // Demo Verileri tercihini uygula
-  const demoMode = localStorage.getItem('edu_demo_mode');
-  if(demoMode === '0'){
-    applyDemoMode(false);
-    const demoToggle = document.getElementById('demoDataToggle');
-    if(demoToggle){ demoToggle.textContent='Kapalı'; demoToggle.classList.add('off'); }
-  }
+  const demoMode = localStorage.getItem('edu_demo_mode') === '1';
+  applyDemoMode(demoMode);
+  const demoToggle = document.getElementById('demoDataToggle');
+  if(demoToggle){ demoToggle.textContent=demoMode?'Açık':'Kapalı'; demoToggle.classList.toggle('off',!demoMode); }
   renderDerslerGrid();
   renderDate();
   // Load saved theme
   const saved = localStorage.getItem('edu_theme');
   if(saved && saved !== appState.theme) toggleTheme();
+  loadPreferences();
 
   // v4: Load persisted data
   loadPersistedData();
@@ -3205,6 +3215,7 @@ function doLogin(){
 }
 function doGuest(){
   appState.user={name:'Misafir',role:'ogrenci',email:'misafir@demo.com'};
+  document.documentElement.classList.add('guest-mode');
   enterApp('Misafir');
 }
 function enterApp(name){
@@ -3213,6 +3224,7 @@ function enterApp(name){
   document.getElementById('profileSub').textContent = `${appState.user.role==='ogretmen'?'Öğretmen':'Öğrenci'} · ${appState.user.email}`;
   document.getElementById('screen-login').classList.remove('active');
   document.getElementById('screen-app').classList.add('active');
+  renderDerslerGrid();
   showToast(`Hoş geldin, ${name}! 👋`, 'success');
 
   // Firestore'dan veri yükle (misafir değilse)
@@ -3232,6 +3244,7 @@ function enterApp(name){
 function doLogout(){
   if(!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
   appState.user = null;
+  document.documentElement.classList.remove('guest-mode');
   document.getElementById('screen-app').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
 }
@@ -3247,12 +3260,31 @@ function toggleTheme(){
   const icon = isDark?'☀️':'🌙';
   document.getElementById('themeIcon').textContent = icon;
   document.getElementById('themeToggle').textContent = icon;
-  document.getElementById('themeTogglePref').textContent = isDark?'Açık':'Kapalı';
+  document.getElementById('themeTogglePref').textContent = isDark?'Kapalı':'Açık';
+  document.getElementById('themeTogglePref').classList.toggle('off',isDark);
   localStorage.setItem('edu_theme', appState.theme);
 }
-function toggleSound(btn){ btn.textContent = btn.textContent==='Açık'?'Kapalı':'Açık'; btn.classList.toggle('off'); appState.preferences.sound = !appState.preferences.sound; }
-function toggleAutoNext(btn){ btn.textContent = btn.textContent==='Açık'?'Kapalı':'Açık'; btn.classList.toggle('off'); appState.preferences.autoNext = !appState.preferences.autoNext; }
-function updateGoal(v){ document.getElementById('goalVal').textContent=`${v} soru`; document.getElementById('goalDisplay').textContent=`${v} soru`; appState.preferences.goal=parseInt(v); }
+function savePreferences(){ localStorage.setItem('edu_preferences',JSON.stringify(appState.preferences)); }
+function loadPreferences(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('edu_preferences')||'null');
+    if(saved){
+      if(typeof saved.sound==='boolean') appState.preferences.sound=saved.sound;
+      if(typeof saved.autoNext==='boolean') appState.preferences.autoNext=saved.autoNext;
+      if(Number.isFinite(Number(saved.goal))) appState.preferences.goal=Math.min(300,Math.max(5,Number(saved.goal)));
+    }
+  }catch(e){}
+  const sound=document.getElementById('soundToggle');
+  if(sound){sound.textContent=appState.preferences.sound?'Açık':'Kapalı';sound.classList.toggle('off',!appState.preferences.sound);}
+  const auto=document.getElementById('autoNextToggle');
+  if(auto){auto.textContent=appState.preferences.autoNext?'Açık':'Kapalı';auto.classList.toggle('off',!appState.preferences.autoNext);}
+  const slider=document.getElementById('goalSlider');
+  if(slider) slider.value=appState.preferences.goal;
+  updateGoal(appState.preferences.goal,false);
+}
+function toggleSound(btn){ appState.preferences.sound=!appState.preferences.sound;btn.textContent=appState.preferences.sound?'Açık':'Kapalı';btn.classList.toggle('off',!appState.preferences.sound);savePreferences(); }
+function toggleAutoNext(btn){ appState.preferences.autoNext=!appState.preferences.autoNext;btn.textContent=appState.preferences.autoNext?'Açık':'Kapalı';btn.classList.toggle('off',!appState.preferences.autoNext);savePreferences(); }
+function updateGoal(v,persist=true){ const goal=Math.min(300,Math.max(5,parseInt(v)||100));document.getElementById('goalVal').textContent=`${goal} soru`;document.getElementById('goalDisplay').textContent=`${goal} soru`;appState.preferences.goal=goal;if(persist)savePreferences(); }
 function cycleAvatar(){ appState.avatarIdx=(appState.avatarIdx+1)%appState.avatarEmojis.length; const em=appState.avatarEmojis[appState.avatarIdx]; document.getElementById('profilAvatar').textContent=em; document.getElementById('avatarBtn').textContent=em; }
 function exportData(){ const d={user:appState.user,hatalilar:appState.hatalilar,drawings:Object.keys(appState.drawings)}; const b=document.createElement('a'); b.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(d,null,2)); b.download='edufasikuler_data.json'; b.click(); showToast('Veriler indirildi ✓','success'); }
 
@@ -3279,17 +3311,26 @@ function showPanel(name, navEl){
 // ══════════════════════════════
 // DERS GRID
 // ══════════════════════════════
+const GUEST_DEMO_FASIKUL_IDS = new Set(['lgs-matematik']);
+function isGuestSession(){ return appState.user?.email==='misafir@demo.com'; }
+function visibleFasikullerFor(ders){
+  return isGuestSession()
+    ? (ders.fasikuller||[]).filter(f=>GUEST_DEMO_FASIKUL_IDS.has(f.id))
+    : (ders.fasikuller||[]);
+}
 function renderDerslerGrid(){
   const grid = document.getElementById('derslerGrid');
   grid.innerHTML = '';
+  const visibleDersler=MANIFEST.dersler.filter(d=>visibleFasikullerFor(d).length>0 || !isGuestSession());
   const sayac = document.getElementById('derslerSayac');
-  if(sayac) sayac.textContent = `${MANIFEST.dersler.length} ders aktif`;
-  MANIFEST.dersler.forEach(ders => {
+  if(sayac) sayac.textContent = `${visibleDersler.length} ders aktif`;
+  visibleDersler.forEach(ders => {
     const card = document.createElement('div');
     card.className = 'ders-card';
     card.dataset.ders = ders.id;
-    const fasSayisi = ders.fasikuller.length;
-    const soruSayisi = ders.fasikuller.reduce((a,f)=>a+f.soruSayisi,0);
+    const visibleFasikuller=visibleFasikullerFor(ders);
+    const fasSayisi = visibleFasikuller.length;
+    const soruSayisi = visibleFasikuller.reduce((a,f)=>a+f.soruSayisi,0);
     const r = 20; const circ = 2*Math.PI*r;
     const offset = circ * (1 - ders.progPct/100);
     const renkVar = ders.renk;
@@ -3314,7 +3355,7 @@ function renderDerslerGrid(){
         </div>
       </div>
       <div class="ders-card-footer">
-        <span>${ders.fasikuller[0]?.sonCalisma||'—'}</span>
+        <span>${visibleFasikuller[0]?.sonCalisma||'—'}</span>
         <button class="devam-btn" onclick="openDrawer(event,'${ders.id}')">Devam Et →</button>
       </div>`;
     grid.appendChild(card);
@@ -3337,7 +3378,7 @@ function openDrawer(e, dersId){
   currentDrawerDers = ders;
   document.getElementById('drawerTitle').textContent = `${ders.ikon} ${ders.ad} Fasikülleri`;
   document.getElementById('drawerSearch').value='';
-  renderFasikulCards(ders.fasikuller, ders);
+  renderFasikulCards(visibleFasikullerFor(ders), ders);
   document.getElementById('drawerOverlay').classList.add('open');
   document.getElementById('drawer').classList.add('open');
 }
@@ -3347,7 +3388,7 @@ function closeDrawer(){
 }
 function filterFasikuller(q){
   if(!currentDrawerDers) return;
-  const filtered = currentDrawerDers.fasikuller.filter(f=>f.ad.toLowerCase().includes(q.toLowerCase()));
+  const filtered = visibleFasikullerFor(currentDrawerDers).filter(f=>f.ad.toLowerCase().includes(q.toLowerCase()));
   renderFasikulCards(filtered, currentDrawerDers);
 }
 function renderFasikulCards(fasikuller, ders){
@@ -3495,6 +3536,10 @@ function openLastFasikul(){
 // ══════════════════════════════
 async function openReader(dersId, fasikulId){
   closeDrawer();
+  if(isGuestSession() && !GUEST_DEMO_FASIKUL_IDS.has(fasikulId)){
+    showToast('Misafir hesabında yalnızca demo fasikül kullanılabilir','info');
+    return;
+  }
   const ders = MANIFEST.dersler.find(d=>d.id===dersId);
   const fasikul = ders?.fasikuller.find(f=>f.id===fasikulId);
   if(!fasikul) return;
@@ -6560,7 +6605,7 @@ function initCharts(){
     type:'bar',
     data:{
       labels:['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'],
-      datasets:[{label:'Çözülen',data:[8,15,6,22,18,30,14],backgroundColor:'rgba(129,140,248,0.65)',borderRadius:6,borderSkipped:false}]
+      datasets:[{label:'Çözülen',data:[0,0,0,0,0,0,0],backgroundColor:'rgba(129,140,248,0.65)',borderRadius:6,borderSkipped:false}]
     },
     options:{
       responsive:true,
@@ -6575,8 +6620,8 @@ function initCharts(){
   new Chart(document.getElementById('chartRadar'),{
     type:'radar',
     data:{
-      labels:['Koordinat','Uzaklık','Orta Nokta','Paralelkenar','Eğim','Denklem'],
-      datasets:[{label:'Başarı %',data:[85,70,90,55,60,40],backgroundColor:'rgba(129,140,248,0.15)',borderColor:'rgba(129,140,248,0.8)',pointBackgroundColor:'#818cf8',pointRadius:4}]
+      labels:['Konu 1','Konu 2','Konu 3','Konu 4','Konu 5','Konu 6'],
+      datasets:[{label:'Başarı %',data:[0,0,0,0,0,0],backgroundColor:'rgba(129,140,248,0.15)',borderColor:'rgba(129,140,248,0.8)',pointBackgroundColor:'#818cf8',pointRadius:4}]
     },
     options:{
       responsive:true,
@@ -6585,24 +6630,11 @@ function initCharts(){
     }
   });
   // Konu table
-  const konular=[
-    {ad:'Koordinat Sistemi',cozulen:28,dogru:85,net:22.5,trend:'↗'},
-    {ad:'İki Nokta Uzaklığı',cozulen:20,dogru:70,net:13.5,trend:'➡'},
-    {ad:'Orta Nokta',cozulen:15,dogru:90,net:13.5,trend:'↗'},
-    {ad:'Paralelkenar',cozulen:18,dogru:55,net:8.25,trend:'↘'},
-    {ad:'Eğim',cozulen:32,dogru:60,net:16,trend:'↗'},
-    {ad:'Doğru Denklemi',cozulen:29,dogru:40,net:4.75,trend:'↘'}
-  ];
   const tbody=document.getElementById('konuTableBody');
-  konular.forEach(k=>{
-    const cls=k.trend==='↗'?'trend-up':k.trend==='↘'?'trend-dn':'trend-eq';
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${k.ad}</td><td>${k.cozulen}</td><td>%${k.dogru}</td><td>${k.net}</td><td class="${cls}">${k.trend}</td>`;
-    tbody.appendChild(tr);
-  });
+  tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:28px">Henüz konu performansı oluşmadı.</td></tr>';
   // Streak cal
   const cal=document.getElementById('calGrid');
-  const seed=[1,0,3,2,4,1,0,2,3,1,4,2,1,0,3,2,4,3,1,2,0,4,1,3,2,0,1,4,2,3,1,2,0,4,1];
+  const seed=Array(35).fill(0);
   seed.forEach(v=>{
     const d=document.createElement('div');
     d.className='cal-day'+(v?` level-${v}`:'');
@@ -6610,12 +6642,12 @@ function initCharts(){
   });
   // Badges
   const badges=[
-    {icon:'🔥',name:'7 Günlük Seri',earned:true},
-    {icon:'⚡',name:'Hız Rekoru',earned:true},
+    {icon:'🔥',name:'7 Günlük Seri',earned:false},
+    {icon:'⚡',name:'Hız Rekoru',earned:false},
     {icon:'💯',name:'Mükemmel Test',earned:false},
-    {icon:'🦉',name:'Gece Kuşu',earned:true},
+    {icon:'🦉',name:'Gece Kuşu',earned:false},
     {icon:'🎯',name:'Keskin Nişancı',earned:false},
-    {icon:'📚',name:'Kitap Kurdu',earned:true},
+    {icon:'📚',name:'Kitap Kurdu',earned:false},
     {icon:'🚀',name:'Roket Hızı',earned:false},
     {icon:'🏆',name:'Şampiyon',earned:false},
     {icon:'🧠',name:'Dahi',earned:false},
@@ -7173,6 +7205,9 @@ function applyDemoStats(on){
   set('kpiTimeSub', s.kpiTimeSub);
   set('kpiLongestStreak', s.kpiLongest);
   set('kpiLongestSub', s.kpiLongestSub);
+  set('profileSolved', s.totalSolved);
+  set('profileStreak', s.streak+'🔥');
+  set('profileAccuracy', s.accuracy);
   // Streak dots
   document.querySelectorAll('.streak-dot').forEach((d,i)=>{ d.classList.toggle('done', on && i<7); });
 }
@@ -7208,6 +7243,7 @@ function toggleDemoData(btn){
 // DERS CRUD
 // ══════════════════════════════
 function openDersModal(dersId, e){
+  if(isGuestSession()){ showToast('Ders eklemek için yetkili hesabıyla giriş yapın','info'); return; }
   if(e) e.stopPropagation();
   const modal = document.getElementById('dersModal');
   const silBtn = document.getElementById('dersSilBtn');
@@ -7281,6 +7317,7 @@ function silDers(){
 // FASİKÜL CRUD
 // ══════════════════════════════
 async function openFasikulModal(fasikulId){
+  if(isGuestSession()){ showToast('Fasikül eklemek için yetkili hesabıyla giriş yapın','info'); return; }
   const modal = document.getElementById('fasikulModal');
   const silBtn = document.getElementById('fasikulSilBtn');
   document.getElementById('fasikulEditId').value = '';

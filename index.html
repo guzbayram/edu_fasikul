@@ -2256,11 +2256,14 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const creatorApp = initializeApp(firebaseConfig, 'EduFasikulUserCreator');
 const db = getFirestore(app);
 const auth = getAuth(app);
+const creatorAuth = getAuth(creatorApp);
 
 window._db = db;
 window._auth = auth;
+window._authCreator = creatorAuth;
 window._fsDoc = doc;
 window._fsSetDoc = setDoc;
 window._fsGetDoc = getDoc;
@@ -3434,7 +3437,7 @@ async function addKullanici(){
   if(addBtn){ addBtn.disabled=true; addBtn.textContent='Ekleniyor…'; }
   try{
     // 1) Firebase Auth'ta hesap oluştur
-    const cred = await window._authCreateUser(window._auth, email, pass);
+    const cred = await window._authCreateUser(window._authCreator, email, pass);
     const uid = cred.user.uid;
 
     // 2) Firestore'a profil yaz (şifre YOK — Auth'ta güvenli)
@@ -3528,8 +3531,9 @@ function toggleTheme(){
   document.getElementById('themeTogglePref').textContent = isDark?'Kapalı':'Açık';
   document.getElementById('themeTogglePref').classList.toggle('off',isDark);
   localStorage.setItem('edu_theme', appState.theme);
+  scheduleCloudPersist();
 }
-function savePreferences(){ localStorage.setItem('edu_preferences',JSON.stringify(appState.preferences)); }
+function savePreferences(){ localStorage.setItem('edu_preferences',JSON.stringify(appState.preferences)); scheduleCloudPersist(); }
 function loadPreferences(){
   try{
     const saved=JSON.parse(localStorage.getItem('edu_preferences')||'null');
@@ -4532,7 +4536,9 @@ function saveDrawingForPage(pageNum){
   const fc = appState.fabricCanvases[pageNum];
   if(!fc || !appState.aktifFasikul) return;
   const key = `drawing_${appState.aktifFasikul.id}_p${pageNum}`;
-  appState.drawings[key] = JSON.stringify(fc);
+  const json=JSON.stringify(fc);
+  appState.drawings[key] = json;
+  persistDrawingCloud(key,json);
 }
 
 function setObjectsInteractive(fc, selectable){
@@ -4887,13 +4893,17 @@ function saveDrawing(){
     // Tüm render edilmiş sayfaları kaydet
     Object.entries(appState.fabricCanvases).forEach(([pn, fc])=>{
       const key = `drawing_${appState.aktifFasikul.id}_p${pn}`;
-      appState.drawings[key] = JSON.stringify(fc);
+      const json=JSON.stringify(fc);
+      appState.drawings[key] = json;
+      persistDrawingCloud(key,json);
     });
   } else {
     const fc = appState.fabricCanvas;
     if(!fc) return;
     const key = `drawing_${appState.aktifFasikul.id}_p${appState.currentPage}`;
-    appState.drawings[key] = JSON.stringify(fc);
+    const json=JSON.stringify(fc);
+    appState.drawings[key] = json;
+    persistDrawingCloud(key,json);
   }
   const ind = document.getElementById('readerToolbar').querySelector('[title="Kaydet (Ctrl+S)"]');
   if(ind) { ind.style.color='var(--green)'; setTimeout(()=>ind.style.color='',800); }
@@ -5051,6 +5061,7 @@ function clearPage(){
   }
   const key = `drawing_${appState.aktifFasikul?.id}_p${pageNum}`;
   delete appState.drawings[key];
+  deleteDrawingCloud(key);
   appState.undoStack.push(fc ? JSON.stringify(fc) : '{}');
   appState.redoStack = [];
   showToast('Sayfa temizlendi','info');
@@ -5647,7 +5658,15 @@ function selectAnswer(soruNo, selected, correct, idx){
 }
 
 function skipQuestion(soruNo, idx){
-  appState.sorularState[soruNo] = {answered:true, selected:null, correct:false, skipped:true};
+  const aktifSoru = (appState.aktifAltKonu?.sorular||[]).find(s=>(s._uid||s.no)===soruNo);
+  appState.sorularState[soruNo] = {
+    answered:true, selected:null, correct:false, skipped:true,
+    correct_answer:aktifSoru?.cevap||'',
+    timeSec:appState.timerSec,
+    fasikulId:appState.aktifFasikul?.id||'',fasikulAd:appState.aktifFasikul?.ad||'',
+    konu:appState.aktifKonu?.ad||'',altKonu:appState.aktifAltKonu?.ad||'',
+    zorluk:aktifSoru?.zorluk||'',_synced:false
+  };
   updateTestProgress();
   const sorular = appState.aktifAltKonu?.sorular || [];
   const nextIdx = idx + 1;
@@ -5692,6 +5711,7 @@ function toggleStar(soruNo){
   const btn = document.querySelector(`#soru-card-${soruNo} .soru-action[title="Yıldızla"]`);
   if(btn) btn.classList.toggle('starred');
   showToast(appState.sorularState[soruNo].starred?'Yıldızlı sorulara eklendi ⭐':'Yıldız kaldırıldı','info');
+  persistData();
 }
 
 // ══════════════════════════════════════════════════════
@@ -8307,17 +8327,21 @@ async function loadAllKonular(){
 // ══════════════════════════════
 function persistManifest(){
   try{
-    const slim = MANIFEST.dersler.map(d=>({
-      id:d.id, ad:d.ad, ikon:d.ikon, renk:d.renk, progPct:d.progPct,
-      fasikuller: d.fasikuller.map(f=>({
-        id:f.id, ad:f.ad, thumb:f.thumb, thumbBg:f.thumbBg,
-        sinif:f.sinif, konuSayisi:f.konuSayisi, soruSayisi:f.soruSayisi,
-        progPct:f.progPct, sonCalisma:f.sonCalisma, temaRenk:f.temaRenk||null,
-        jsonFile:f.jsonFile||null, pdfFile:f.pdfFile||null, sourceType:f.sourceType||null
-      }))
-    }));
+    const slim = buildManifestMeta();
     localStorage.setItem('edu_manifest_meta', JSON.stringify(slim));
+    scheduleCloudPersist();
   }catch(e){}
+}
+function buildManifestMeta(){
+  return MANIFEST.dersler.map(d=>({
+    id:d.id, ad:d.ad, ikon:d.ikon, renk:d.renk, progPct:d.progPct,
+    fasikuller: d.fasikuller.map(f=>({
+      id:f.id, ad:f.ad, thumb:f.thumb, thumbBg:f.thumbBg,
+      sinif:f.sinif, konuSayisi:f.konuSayisi, soruSayisi:f.soruSayisi,
+      progPct:f.progPct, sonCalisma:f.sonCalisma, temaRenk:f.temaRenk||null,
+      jsonFile:f.jsonFile||null, pdfFile:f.pdfFile||null, sourceType:f.sourceType||null
+    }))
+  }));
 }
 function loadManifestMeta(){
   try{
@@ -8362,6 +8386,16 @@ function _getUserKey(){
   // UID varsa onu kullan (Firebase Auth), yoksa e-postayı key'e çevir (eski veri geçiş desteği)
   return appState.user.uid || appState.user.email.replace(/[^a-zA-Z0-9]/g,'_');
 }
+function _safeDocId(value){ return encodeURIComponent(String(value||'')).replace(/\./g,'%2E'); }
+function _userDocRef(uid=_getUserKey()){
+  if(!uid || !window._firestoreReady) return null;
+  return window._fsDoc(window._db,'kullanicilar',uid);
+}
+function scheduleCloudPersist(){
+  if(!appState.user || appState.user.email==='misafir@demo.com') return;
+  if(appState._cloudPersistTimer) clearTimeout(appState._cloudPersistTimer);
+  appState._cloudPersistTimer=setTimeout(()=>persistData(),900);
+}
 
 function _hesaplaIstatistik(){
   const state = appState.sorularState || {};
@@ -8396,7 +8430,7 @@ function _persistYeniCozumler(uid){
   const state = appState.sorularState || {};
   Object.entries(state).forEach(([soruKey, s])=>{
     if(!s || !s.answered || s._synced) return;
-    const cozumRef = window._fsDoc(window._db, 'ogrenciler', uid, 'cozumGecmisi', String(soruKey));
+    const cozumRef = window._fsDoc(window._db, 'kullanicilar', uid, 'cozumler', _safeDocId(soruKey));
     window._fsSetDoc(cozumRef, {
       soruKey: soruKey,
       fasikulId: s.fasikulId || appState.aktifFasikul?.id || '',
@@ -8414,6 +8448,21 @@ function _persistYeniCozumler(uid){
   });
 }
 
+function persistDrawingCloud(key,json){
+  const uid=_getUserKey();
+  if(!uid || !json || !window._firestoreReady) return;
+  const ref=window._fsDoc(window._db,'kullanicilar',uid,'cizimler',_safeDocId(key));
+  window._fsSetDoc(ref,{key,json,fasikulId:appState.aktifFasikul?.id||'',updatedAt:new Date().toISOString()},{merge:true})
+    .catch(e=>console.warn('Çizim buluta kaydedilemedi:',e));
+}
+
+function deleteDrawingCloud(key){
+  const uid=_getUserKey();
+  if(!uid || !window._firestoreReady || !window._fsDeleteDoc) return;
+  window._fsDeleteDoc(window._fsDoc(window._db,'kullanicilar',uid,'cizimler',_safeDocId(key)))
+    .catch(e=>console.warn('Çizim buluttan silinemedi:',e));
+}
+
 function persistData(){
   try{
     localStorage.setItem('edu_hatalilar', JSON.stringify(appState.hatalilar));
@@ -8423,12 +8472,14 @@ function persistData(){
   if(key && window._firestoreReady){
     const istatistik = _hesaplaIstatistik();
     const fasikulIst = _hesaplaFasikulIstatistik();
-    const docRef = window._fsDoc(window._db, 'ogrenciler', key);
+    const docRef = _userDocRef(key);
     window._fsSetDoc(docRef, {
       email: appState.user.email,
       name: appState.user.name,
       hatalilar: appState.hatalilar,
-      sorularState: appState.sorularState,
+      preferences: appState.preferences,
+      theme: appState.theme,
+      manifest: buildManifestMeta(),
       istatistik: istatistik,
       fasikulIstatistik: fasikulIst,
       guncelleme: new Date().toISOString()
@@ -8452,20 +8503,86 @@ async function loadFromFirestore(){
   const key = _getUserKey();
   if(!key || !window._firestoreReady) return;
   try{
-    const docRef = window._fsDoc(window._db, 'ogrenciler', key);
+    let docRef = _userDocRef(key);
     const snap = await window._fsGetDoc(docRef);
+    let data = null;
     if(snap.exists()){
-      const data = snap.data();
+      data = snap.data();
       if(data.hatalilar)    appState.hatalilar    = data.hatalilar;
+      if(data.preferences){
+        appState.preferences={...appState.preferences,...data.preferences};
+        localStorage.setItem('edu_preferences',JSON.stringify(appState.preferences));
+        loadPreferences();
+      }
+      if(data.theme && data.theme!==appState.theme){
+        document.documentElement.setAttribute('data-theme',data.theme);
+        appState.theme=data.theme;
+        localStorage.setItem('edu_theme',data.theme);
+      }
+      if(Array.isArray(data.manifest)){
+        localStorage.setItem('edu_manifest_meta',JSON.stringify(data.manifest));
+        loadManifestMeta();
+        await loadBundledFasikuller();
+        renderDerslerGrid();
+      }
+      // Eski ana belge formatını da destekle; yeni formatta asıl veri alt koleksiyondadır.
       if(data.sorularState) appState.sorularState = data.sorularState;
       localStorage.setItem('edu_hatalilar',    JSON.stringify(appState.hatalilar));
-      localStorage.setItem('edu_sorularState', JSON.stringify(appState.sorularState));
-      document.getElementById('hataliCount').textContent=appState.hatalilar.length||0;
-      document.getElementById('hataliCountBig').textContent=`${appState.hatalilar.length||0} Soru`;
-      showToast('Veriler buluttan yüklendi ☁️','success');
-      // ✅ FIX: Firestore'dan yükleme sonrası dashboard'u güncelle
-      if(typeof updateDashboard==='function') updateDashboard();
     }
+
+    // Eski koleksiyondan otomatik geçiş: ogrenciler/{uid} veya ogrenciler/{emailKey}
+    const legacyKeys=[key, appState.user?.email ? appState.user.email.replace(/[^a-zA-Z0-9]/g,'_') : ''].filter(Boolean);
+    for(const legacyKey of [...new Set(legacyKeys)]){
+      try{
+        const legacySnap=await window._fsGetDoc(window._fsDoc(window._db,'ogrenciler',legacyKey));
+        if(!legacySnap.exists()) continue;
+        const legacy=legacySnap.data();
+        if(!appState.hatalilar?.length && legacy.hatalilar) appState.hatalilar=legacy.hatalilar;
+        if(!Object.keys(appState.sorularState||{}).length && legacy.sorularState) appState.sorularState=legacy.sorularState;
+        if(legacy.istatistik || legacy.fasikulIstatistik) await window._fsSetDoc(docRef,{legacyIstatistik:legacy.istatistik||null,legacyFasikulIstatistik:legacy.fasikulIstatistik||null},{merge:true});
+        break;
+      }catch(e){}
+    }
+
+    // Yeni cevap alt koleksiyonu
+    try{
+      const cozumSnap=await window._fsGetDocs(window._fsCollection(window._db,'kullanicilar',key,'cozumler'));
+      const loadedState={...appState.sorularState};
+      cozumSnap.forEach(d=>{
+        const c=d.data();
+        const soruKey=c.soruKey || decodeURIComponent(d.id);
+        loadedState[soruKey]={
+          answered:true,
+          selected:c.ogrenciCevap ?? null,
+          correct:c.dogru===true,
+          skipped:c.atladi===true,
+          correct_answer:c.dogruCevap||'',
+          timeSec:c.sureSaniye||0,
+          fasikulId:c.fasikulId||'',fasikulAd:c.fasikulAd||'',
+          konu:c.konu||'',altKonu:c.altKonu||'',zorluk:c.zorluk||'',
+          _synced:true
+        };
+      });
+      appState.sorularState=loadedState;
+      localStorage.setItem('edu_sorularState',JSON.stringify(appState.sorularState));
+    }catch(e){ console.warn('Çözüm geçmişi yüklenemedi:',e); }
+
+    // PDF üzerindeki çizimler
+    try{
+      const drawingSnap=await window._fsGetDocs(window._fsCollection(window._db,'kullanicilar',key,'cizimler'));
+      const drawings={...appState.drawings};
+      drawingSnap.forEach(d=>{
+        const c=d.data();
+        if(c.key && c.json) drawings[c.key]=c.json;
+      });
+      appState.drawings=drawings;
+    }catch(e){ console.warn('Çizimler yüklenemedi:',e); }
+
+    document.getElementById('hataliCount').textContent=appState.hatalilar.length||0;
+    document.getElementById('hataliCountBig').textContent=`${appState.hatalilar.length||0} Soru`;
+    persistData();
+    showToast('Veriler buluttan yüklendi ☁️','success');
+    if(typeof updateDashboard==='function') updateDashboard();
   }catch(e){ console.warn('Firestore yükleme hatası:',e); }
 }
 

@@ -3167,6 +3167,9 @@ const appState = {
     autoNext: true,
     goal: 100
   },
+  cloudIstatistik: null,
+  cloudFasikulIstatistik: null,
+  cloudSolutionsLoaded: false,
   avatarEmojis: ['🎓','🧑‍🎓','👨‍🎓','👩‍🎓','🦁','🐯','🦊','🦅','🚀','⚡','🔥','🎯','💡','🌟','🏆','🎮','🤖','👾','🧠','🌈'],
   avatarIdx: 0,
   eduDirHandle: null,   // Edu-Fasikul lokal klasör erişimi
@@ -3206,6 +3209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // v4: Load persisted data
   loadPersistedData();
+  updateDashboard();
 
   // v4: Onboarding flag for first-time users
   if(!localStorage.getItem('edu_onboarded')){
@@ -3574,6 +3578,7 @@ function showPanel(name, navEl){
   const titles = {dashboard:'Anasayfa',stats:'İstatistikler',hatalilar:'Hatalılar Defteri',profil:'Profilim',admin:'Kullanıcı Yönetimi'};
   document.getElementById('topBarTitle').textContent = titles[name]||name;
   if(name==='stats' && !window._chartsInited){ initCharts(); window._chartsInited=true; }
+  if(name==='dashboard' || name==='stats' || name==='profil') updateDashboard();
   if(name==='hatalilar') renderHatalilar();
   if(name==='admin') loadKullaniciList();
 }
@@ -3903,6 +3908,7 @@ function toggleMobileLeft(){
 function closeReader(){
   saveDrawing();
   stopTimer();
+  updateDashboard();
   document.getElementById('reader-overlay').classList.remove('open');
   appState.aktifFasikul = null;
   appState.aktifAltKonu = null;
@@ -5625,6 +5631,7 @@ function selectAnswer(soruNo, selected, correct, idx){
     konu:           appState.aktifKonu?.ad     || '',
     altKonu:        appState.aktifAltKonu?.ad  || '',
     zorluk:         aktifSoru?.zorluk          || '',
+    tarih:          new Date().toISOString(),
     _synced:        false
   };
 
@@ -5643,6 +5650,7 @@ function selectAnswer(soruNo, selected, correct, idx){
   // Update stats badge in alt konu list
   refreshAltKonuChip();
   updateTestProgress();
+  updateDashboard();
 
   // Auto-advance ONLY if correct answer
   if(isCorrect){
@@ -5664,9 +5672,10 @@ function skipQuestion(soruNo, idx){
     timeSec:appState.timerSec,
     fasikulId:appState.aktifFasikul?.id||'',fasikulAd:appState.aktifFasikul?.ad||'',
     konu:appState.aktifKonu?.ad||'',altKonu:appState.aktifAltKonu?.ad||'',
-    zorluk:aktifSoru?.zorluk||'',_synced:false
+    zorluk:aktifSoru?.zorluk||'',tarih:new Date().toISOString(),_synced:false
   };
   updateTestProgress();
+  updateDashboard();
   const sorular = appState.aktifAltKonu?.sorular || [];
   const nextIdx = idx + 1;
   if(nextIdx < sorular.length) goToSoru(nextIdx);
@@ -6903,7 +6912,11 @@ function playFeedbackSound(correct){
 function initCharts(){
   Chart.defaults.color='#b8b8cc';
   // Weekly bar
-  new Chart(document.getElementById('chartWeekly'),{
+  const weeklyCanvas=document.getElementById('chartWeekly');
+  const radarCanvas=document.getElementById('chartRadar');
+  if(window._chartWeekly){ try{ window._chartWeekly.destroy(); }catch(e){} }
+  if(window._chartRadar){ try{ window._chartRadar.destroy(); }catch(e){} }
+  window._chartWeekly = new Chart(weeklyCanvas,{
     type:'bar',
     data:{
       labels:['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'],
@@ -6919,7 +6932,7 @@ function initCharts(){
     }
   });
   // Radar
-  new Chart(document.getElementById('chartRadar'),{
+  window._chartRadar = new Chart(radarCanvas,{
     type:'radar',
     data:{
       labels:['Konu 1','Konu 2','Konu 3','Konu 4','Konu 5','Konu 6'],
@@ -6933,15 +6946,18 @@ function initCharts(){
   });
   // Konu table
   const tbody=document.getElementById('konuTableBody');
-  tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:28px">Henüz konu performansı oluşmadı.</td></tr>';
+  if(tbody) tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:28px">Henüz konu performansı oluşmadı.</td></tr>';
   // Streak cal
   const cal=document.getElementById('calGrid');
-  const seed=Array(35).fill(0);
-  seed.forEach(v=>{
-    const d=document.createElement('div');
-    d.className='cal-day'+(v?` level-${v}`:'');
-    cal.appendChild(d);
-  });
+  if(cal){
+    cal.innerHTML='';
+    const seed=Array(35).fill(0);
+    seed.forEach(v=>{
+      const d=document.createElement('div');
+      d.className='cal-day'+(v?` level-${v}`:'');
+      cal.appendChild(d);
+    });
+  }
   // Badges
   const badges=[
     {icon:'🔥',name:'7 Günlük Seri',earned:false},
@@ -6956,12 +6972,168 @@ function initCharts(){
     {icon:'⭐',name:'Süper Star',earned:false}
   ];
   const bg=document.getElementById('badgesGrid');
-  badges.forEach(b=>{
-    const div=document.createElement('div');
-    div.className='badge-item'+(b.earned?' earned':' locked');
-    div.innerHTML=`<div class="badge-icon">${b.icon}</div><div class="badge-name">${b.name}</div>`;
-    bg.appendChild(div);
+  if(bg){
+    bg.innerHTML='';
+    badges.forEach(b=>{
+      const div=document.createElement('div');
+      div.className='badge-item'+(b.earned?' earned':' locked');
+      div.innerHTML=`<div class="badge-icon">${b.icon}</div><div class="badge-name">${b.name}</div>`;
+      bg.appendChild(div);
+    });
+  }
+  updateDashboard();
+}
+
+function _canonicalAnswerKey(key,s){
+  const fid=String(s?.fasikulId||'');
+  let base=String(key||'');
+  if(fid && base.startsWith(`${fid}__`)) base=base.slice(fid.length+2);
+  return `${fid}__${base}`;
+}
+function getAnsweredRecords(){
+  const seenObjects=new Set(), seenKeys=new Set(), records=[];
+  Object.entries(appState.sorularState||{}).forEach(([key,s])=>{
+    if(!s || !s.answered || seenObjects.has(s)) return;
+    const canonical=_canonicalAnswerKey(key,s);
+    if(seenKeys.has(canonical)) return;
+    seenObjects.add(s); seenKeys.add(canonical); records.push(s);
   });
+  return records;
+}
+function getDashboardStats(){
+  const records=getAnsweredRecords();
+  const calculated=_hesaplaIstatistik();
+  const cloud=appState.cloudIstatistik||{};
+  const cloudTotal=Number(cloud.toplam||0);
+  const useCalculated=appState.cloudSolutionsLoaded || cloudTotal===0;
+  const pending=useCalculated ? {toplam:0,dogru:0,yanlis:0,bos:0,konular:{}} : _hesaplaIstatistik(records.filter(s=>!s._synced));
+  const toplam=useCalculated ? calculated.toplam : cloudTotal+pending.toplam;
+  const dogru=useCalculated ? calculated.dogru : Number(cloud.dogru||0)+pending.dogru;
+  const yanlis=useCalculated ? calculated.yanlis : Number(cloud.yanlis||0)+pending.yanlis;
+  const bos=useCalculated ? calculated.bos : Number(cloud.bos||0)+pending.bos;
+  const konular=useCalculated ? calculated.konular : JSON.parse(JSON.stringify(cloud.konular||{}));
+  if(!useCalculated && pending.toplam){
+    Object.entries(pending.konular||{}).forEach(([konu,k])=>{
+      if(!konular[konu]) konular[konu]={dogru:0,yanlis:0};
+      konular[konu].dogru=Number(konular[konu].dogru||0)+Number(k.dogru||0);
+      konular[konu].yanlis=Number(konular[konu].yanlis||0)+Number(k.yanlis||0);
+    });
+  }
+  return {toplam,dogru,yanlis,bos,konular,records};
+}
+function safeDateKey(dateLike){
+  const d=dateLike ? new Date(dateLike) : null;
+  if(!d || Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0,10);
+}
+function getDailyCounts(records){
+  const counts={};
+  records.forEach(r=>{
+    const key=safeDateKey(r.tarih);
+    if(key) counts[key]=(counts[key]||0)+1;
+  });
+  return counts;
+}
+function calcCurrentStreak(counts){
+  let streak=0;
+  const d=new Date();
+  for(let i=0;i<365;i++){
+    const key=d.toISOString().slice(0,10);
+    if((counts[key]||0)>0){ streak++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return streak;
+}
+function updateDashboard(){
+  const stats=getDashboardStats();
+  const total=stats.toplam||0;
+  const correct=stats.dogru||0;
+  const wrong=stats.yanlis||0;
+  const accuracy=total ? Math.round((correct/total)*100) : 0;
+  const records=stats.records||[];
+  const daily=getDailyCounts(records);
+  const today=new Date();
+  const weekKeys=[];
+  for(let i=6;i>=0;i--){ const d=new Date(today); d.setDate(today.getDate()-i); weekKeys.push(d.toISOString().slice(0,10)); }
+  const weeklyData=weekKeys.map(k=>daily[k]||0);
+  const weeklyTotal=weeklyData.reduce((a,b)=>a+b,0);
+  const streak=calcCurrentStreak(daily);
+  const totalSec=records.reduce((sum,r)=>sum+Number(r.timeSec||0),0);
+  const totalMin=Math.round(totalSec/60);
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('sidebarStreakCount', `${streak} Gün`);
+  set('statStreak', streak);
+  set('statStreakDelta', streak ? '↗ Devam et!' : '—');
+  set('totalSolved', total);
+  set('statSolvedDelta', weeklyTotal ? `↗ Bu hafta +${weeklyTotal}` : '—');
+  set('statWeekly', weeklyTotal);
+  set('statWeeklyDelta', weeklyTotal ? '↗ Aktif hafta' : '—');
+  set('statAccuracy', `%${accuracy}`);
+  set('statAccuracyDelta', total ? `${correct} doğru · ${wrong} yanlış` : '—');
+  set('kpiTotalSolved', total);
+  set('kpiSolvedSub', weeklyTotal ? `Bu hafta +${weeklyTotal}` : 'Henüz haftalık çözüm yok');
+  set('kpiAccuracy', `%${accuracy}`);
+  set('kpiAccuracySub', total ? `${correct}/${total} doğru` : 'Henüz veri yok');
+  set('kpiTime', totalMin>=60 ? `${Math.floor(totalMin/60)}s ${totalMin%60}d` : `${totalMin}d`);
+  set('kpiTimeSub', totalSec ? 'Çözüm sürelerinden hesaplandı' : 'Henüz süre yok');
+  set('kpiLongestStreak', `${streak}🔥`);
+  set('kpiLongestSub', streak ? 'Güncel seri' : 'Seri oluşmadı');
+  set('profileSolved', total);
+  set('profileStreak', `${streak}🔥`);
+  set('profileAccuracy', `%${accuracy}`);
+  document.querySelectorAll('.streak-dot').forEach((d,i)=>d.classList.toggle('done', i<Math.min(streak,7)));
+
+  if(window._chartWeekly){
+    window._chartWeekly.data.datasets[0].data=weeklyData;
+    window._chartWeekly.update();
+  }
+  const topicRows=Object.entries(stats.konular||{}).map(([name,k])=>{
+    const d=Number(k.dogru||0), y=Number(k.yanlis||0), solved=d+y;
+    return {name,dogru:d,yanlis:y,solved,accuracy:solved?Math.round(d/solved*100):0,net:d-y*0.25};
+  }).filter(r=>r.solved>0).sort((a,b)=>b.solved-a.solved);
+  if(window._chartRadar){
+    const radarRows=topicRows.slice(0,6);
+    window._chartRadar.data.labels=radarRows.length ? radarRows.map(r=>r.name.length>16?r.name.slice(0,15)+'…':r.name) : ['Konu 1','Konu 2','Konu 3','Konu 4','Konu 5','Konu 6'];
+    window._chartRadar.data.datasets[0].data=radarRows.length ? radarRows.map(r=>r.accuracy) : [0,0,0,0,0,0];
+    window._chartRadar.update();
+  }
+  const tbody=document.getElementById('konuTableBody');
+  if(tbody){
+    if(!topicRows.length){
+      tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:28px">Henüz konu performansı oluşmadı.</td></tr>';
+    }else{
+      tbody.innerHTML=topicRows.slice(0,12).map(r=>`<tr><td>${r.name}</td><td>${r.solved}</td><td>%${r.accuracy}</td><td>${Number.isInteger(r.net)?r.net:r.net.toFixed(2)}</td><td>${r.accuracy>=75?'↗':r.accuracy>=50?'➡':'↘'}</td></tr>`).join('');
+    }
+  }
+  const cal=document.getElementById('calGrid');
+  if(cal){
+    cal.innerHTML='';
+    for(let i=34;i>=0;i--){
+      const d=new Date(today); d.setDate(today.getDate()-i);
+      const count=daily[d.toISOString().slice(0,10)]||0;
+      const level=count>=20?4:count>=10?3:count>=4?2:count>0?1:0;
+      const el=document.createElement('div');
+      el.className='cal-day'+(level?` level-${level}`:'');
+      el.title=`${count} soru`;
+      cal.appendChild(el);
+    }
+  }
+  const badges=[
+    {icon:'🔥',name:'7 Günlük Seri',earned:streak>=7},
+    {icon:'⚡',name:'Hız Rekoru',earned:records.some(r=>Number(r.timeSec||999)<=20)},
+    {icon:'💯',name:'Mükemmel Test',earned:total>=10&&accuracy===100},
+    {icon:'🦉',name:'Gece Kuşu',earned:records.some(r=>{const d=new Date(r.tarih||0);return !Number.isNaN(d.getTime())&&d.getHours()>=22;})},
+    {icon:'🎯',name:'Keskin Nişancı',earned:total>=20&&accuracy>=85},
+    {icon:'📚',name:'Kitap Kurdu',earned:total>=100},
+    {icon:'🚀',name:'Roket Hızı',earned:weeklyTotal>=50},
+    {icon:'🏆',name:'Şampiyon',earned:total>=300},
+    {icon:'🧠',name:'Dahi',earned:Object.keys(stats.konular||{}).length>=5},
+    {icon:'⭐',name:'Süper Star',earned:total>=500}
+  ];
+  const bg=document.getElementById('badgesGrid');
+  if(bg){
+    bg.innerHTML=badges.map(b=>`<div class="badge-item${b.earned?' earned':' locked'}"><div class="badge-icon">${b.icon}</div><div class="badge-name">${b.name}</div></div>`).join('');
+  }
 }
 
 // ══════════════════════════════
@@ -8399,12 +8571,10 @@ function scheduleCloudPersist(){
   appState._cloudPersistTimer=setTimeout(()=>persistData(),900);
 }
 
-function _hesaplaIstatistik(){
-  const state = appState.sorularState || {};
+function _hesaplaIstatistik(records=getAnsweredRecords()){
   let toplam=0, dogru=0, yanlis=0, bos=0;
   const konular = {};
-  Object.values(state).forEach(s=>{
-    if(!s || !s.answered) return;
+  records.forEach(s=>{
     toplam++;
     const konu = s.konu || 'Diğer';
     if(!konular[konu]) konular[konu]={dogru:0, yanlis:0};
@@ -8430,8 +8600,12 @@ function _hesaplaFasikulIstatistik(){
 function _persistYeniCozumler(uid){
   if(!window._fsDoc || !window._firestoreReady) return;
   const state = appState.sorularState || {};
+  const seenObjects=new Set(), seenKeys=new Set();
   Object.entries(state).forEach(([soruKey, s])=>{
     if(!s || !s.answered || s._synced) return;
+    const canonical=_canonicalAnswerKey(soruKey,s);
+    if(seenObjects.has(s) || seenKeys.has(canonical)) return;
+    seenObjects.add(s); seenKeys.add(canonical);
     const cozumRef = window._fsDoc(window._db, 'kullanicilar', uid, 'cozumler', _safeDocId(soruKey));
     window._fsSetDoc(cozumRef, {
       soruKey: soruKey,
@@ -8445,8 +8619,11 @@ function _persistYeniCozumler(uid){
       atladi: s.skipped === true,
       sureSaniye: s.timeSec || 0,
       zorluk: s.zorluk || '',
-      tarih: new Date().toISOString()
-    }, {merge:true}).then(()=>{ s._synced=true; }).catch(e=>console.warn('cozumGecmisi kayıt hatası:',e));
+      tarih: s.tarih || new Date().toISOString()
+    }, {merge:true}).then(()=>{
+      s._synced=true;
+      try{ localStorage.setItem('edu_sorularState',JSON.stringify(appState.sorularState)); }catch(e){}
+    }).catch(e=>console.warn('cozumGecmisi kayıt hatası:',e));
   });
 }
 
@@ -8472,7 +8649,14 @@ function persistData(){
   }catch(e){}
   const key = _getUserKey();
   if(key && window._firestoreReady){
-    const istatistik = _hesaplaIstatistik();
+    const dashboardStats = getDashboardStats();
+    const istatistik = {
+      toplam:dashboardStats.toplam,
+      dogru:dashboardStats.dogru,
+      yanlis:dashboardStats.yanlis,
+      bos:dashboardStats.bos,
+      konular:dashboardStats.konular
+    };
     const fasikulIst = _hesaplaFasikulIstatistik();
     const docRef = _userDocRef(key);
     window._fsSetDoc(docRef, {
@@ -8485,7 +8669,9 @@ function persistData(){
       istatistik: istatistik,
       fasikulIstatistik: fasikulIst,
       guncelleme: new Date().toISOString()
-    }, { merge: true }).catch(e=>console.warn('Firestore kayıt hatası:',e));
+    }, { merge: true }).then(()=>{
+      if(!appState.cloudSolutionsLoaded) appState.cloudIstatistik=istatistik;
+    }).catch(e=>console.warn('Firestore kayıt hatası:',e));
     _persistYeniCozumler(key);
   }
 }
@@ -8508,9 +8694,12 @@ async function loadFromFirestore(){
     let docRef = _userDocRef(key);
     const snap = await window._fsGetDoc(docRef);
     let data = null;
+    let shouldPersistAfterLoad = false;
     if(snap.exists()){
       data = snap.data();
       if(data.hatalilar)    appState.hatalilar    = data.hatalilar;
+      if(data.istatistik) appState.cloudIstatistik = data.istatistik;
+      if(data.fasikulIstatistik) appState.cloudFasikulIstatistik = data.fasikulIstatistik;
       if(data.preferences){
         appState.preferences={...appState.preferences,...data.preferences};
         localStorage.setItem('edu_preferences',JSON.stringify(appState.preferences));
@@ -8539,8 +8728,8 @@ async function loadFromFirestore(){
         const legacySnap=await window._fsGetDoc(window._fsDoc(window._db,'ogrenciler',legacyKey));
         if(!legacySnap.exists()) continue;
         const legacy=legacySnap.data();
-        if(!appState.hatalilar?.length && legacy.hatalilar) appState.hatalilar=legacy.hatalilar;
-        if(!Object.keys(appState.sorularState||{}).length && legacy.sorularState) appState.sorularState=legacy.sorularState;
+        if(!appState.hatalilar?.length && legacy.hatalilar){ appState.hatalilar=legacy.hatalilar; shouldPersistAfterLoad=true; }
+        if(!Object.keys(appState.sorularState||{}).length && legacy.sorularState){ appState.sorularState=legacy.sorularState; shouldPersistAfterLoad=true; }
         if(legacy.istatistik || legacy.fasikulIstatistik) await window._fsSetDoc(docRef,{legacyIstatistik:legacy.istatistik||null,legacyFasikulIstatistik:legacy.fasikulIstatistik||null},{merge:true});
         break;
       }catch(e){}
@@ -8550,7 +8739,9 @@ async function loadFromFirestore(){
     try{
       const cozumSnap=await window._fsGetDocs(window._fsCollection(window._db,'kullanicilar',key,'cozumler'));
       const loadedState={...appState.sorularState};
+      let cozumCount=0;
       cozumSnap.forEach(d=>{
+        cozumCount++;
         const c=d.data();
         const soruKey=c.soruKey || decodeURIComponent(d.id);
         const restoredState={
@@ -8562,6 +8753,7 @@ async function loadFromFirestore(){
           timeSec:c.sureSaniye||0,
           fasikulId:c.fasikulId||'',fasikulAd:c.fasikulAd||'',
           konu:c.konu||'',altKonu:c.altKonu||'',zorluk:c.zorluk||'',
+          tarih:c.tarih||'',
           _synced:true
         };
         loadedState[soruKey]=restoredState;
@@ -8569,8 +8761,12 @@ async function loadFromFirestore(){
           loadedState[`${c.fasikulId}__${soruKey}`]=restoredState;
         }
       });
-      appState.sorularState=loadedState;
-      localStorage.setItem('edu_sorularState',JSON.stringify(appState.sorularState));
+      if(cozumCount>0){
+        appState.sorularState=loadedState;
+        appState.cloudIstatistik=null;
+        localStorage.setItem('edu_sorularState',JSON.stringify(appState.sorularState));
+      }
+      appState.cloudSolutionsLoaded=cozumCount>0;
     }catch(e){ console.warn('Çözüm geçmişi yüklenemedi:',e); }
 
     // PDF üzerindeki çizimler
@@ -8586,9 +8782,9 @@ async function loadFromFirestore(){
 
     document.getElementById('hataliCount').textContent=appState.hatalilar.length||0;
     document.getElementById('hataliCountBig').textContent=`${appState.hatalilar.length||0} Soru`;
-    persistData();
+    updateDashboard();
+    if(shouldPersistAfterLoad || Object.values(appState.sorularState||{}).some(s=>s&&s.answered&&!s._synced)) persistData();
     showToast('Veriler buluttan yüklendi ☁️','success');
-    if(typeof updateDashboard==='function') updateDashboard();
   }catch(e){ console.warn('Firestore yükleme hatası:',e); }
 }
 

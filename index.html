@@ -3316,7 +3316,36 @@ async function doLogin(){
     const snap = await window._fsGetDoc(docRef);
 
     if(!snap.exists()){
-      // Auth'ta var ama Firestore'da yok → yetkisiz hesap
+      // Admin hesabı yeniden oluşturulmuşsa (UID değişmiş) → profil otomatik oluştur
+      if(email === ADMIN_EMAIL){
+        const adminProfile = { name:'Admin', email, role:'admin', active:true, createdAt:new Date().toISOString(), addedBy:'system' };
+        await window._fsSetDoc(docRef, adminProfile);
+        appState.user = { name:'Admin', role:'admin', email, uid };
+        enterApp('Admin');
+        return;
+      }
+      // E-posta ile eski UID altındaki belgeyi ara (UID değişmişse geçiş yap)
+      try{
+        const col = window._fsCollection(window._db,'kullanicilar');
+        const allSnap = await window._fsGetDocs(col);
+        let found = null;
+        allSnap.forEach(d=>{ if(d.data().email===email) found={id:d.id, ...d.data()}; });
+        if(found){
+          // Eski belgeyi yeni UID'ye taşı
+          await window._fsSetDoc(docRef, {...found, uid, guncelleme:new Date().toISOString()});
+          if(found.active===false){
+            await window._authSignOut(window._auth);
+            err.textContent='Bu hesap devre dışı bırakılmış.';
+            err.classList.add('show');
+            return;
+          }
+          const name = found.name || email.split('@')[0];
+          appState.user = { name, role:found.role||'ogrenci', email, uid };
+          enterApp(name);
+          return;
+        }
+      }catch(e2){ console.warn('E-posta ile arama hatası:',e2); }
+      // Firestore'da hiç yok → yetkisiz hesap
       await window._authSignOut(window._auth);
       err.textContent='Bu hesap yönetici tarafından eklenmemiş veya silinmiş.';
       err.classList.add('show');

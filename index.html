@@ -5652,6 +5652,8 @@ function skipQuestion(soruNo, idx){
   const sorular = appState.aktifAltKonu?.sorular || [];
   const nextIdx = idx + 1;
   if(nextIdx < sorular.length) goToSoru(nextIdx);
+  // ✅ FIX: Atlanan soruları da kaydet
+  persistData();
 }
 
 function addToHatalilar(soruNo){
@@ -6816,6 +6818,10 @@ function finishTest(){
   // Update total
   const total=parseInt(document.getElementById('totalSolved').textContent)||0;
   document.getElementById('totalSolved').textContent=total+correct+wrong;
+
+  // ✅ FIX: Test bitince verileri Firestore'a kaydet
+  persistData();
+  if(typeof updateDashboard==='function') updateDashboard();
 }
 
 function resetTest(){
@@ -8457,6 +8463,8 @@ async function loadFromFirestore(){
       document.getElementById('hataliCount').textContent=appState.hatalilar.length||0;
       document.getElementById('hataliCountBig').textContent=`${appState.hatalilar.length||0} Soru`;
       showToast('Veriler buluttan yüklendi ☁️','success');
+      // ✅ FIX: Firestore'dan yükleme sonrası dashboard'u güncelle
+      if(typeof updateDashboard==='function') updateDashboard();
     }
   }catch(e){ console.warn('Firestore yükleme hatası:',e); }
 }

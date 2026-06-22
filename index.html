@@ -3004,6 +3004,14 @@ const MANIFEST = {
   ]
 };
 
+// Eski demo sürümünden kalan, gerçek PDF/JSON kaynağı olmayan kartlar.
+// Kullanıcının sonradan oluşturduğu dersler bu listede olmadığı için korunur.
+const LEGACY_DEMO_DERS_IDS = new Set(['bio','fiz','tar','kim','edb']);
+const LEGACY_DEMO_FASIKUL_IDS = new Set(['analitik-duzlem','tyt-matematik','limit-turev']);
+MANIFEST.dersler = MANIFEST.dersler
+  .filter(d=>!LEGACY_DEMO_DERS_IDS.has(d.id))
+  .map(d=>({...d,fasikuller:(d.fasikuller||[]).filter(f=>!LEGACY_DEMO_FASIKUL_IDS.has(f.id))}));
+
 // Depoyla birlikte gelen fasikül kaynakları. JSON otomatik yüklenir;
 // PDF aynı adla kullanıcının profilden bağladığı klasörden okunur.
 const BUNDLED_DERS_CONFIG = {
@@ -3363,7 +3371,7 @@ function renderFasikulCards(fasikuller, ders){
     const isBundled = fas.sourceType === 'bundled';
     const jsonPillHtml = hasKonular
       ? `<span class="fasikul-json-pill ok">✓ ${isBundled?'JSON otomatik':'JSON yüklü'}</span>`
-      : `<span class="fasikul-json-pill missing">JSON yok</span>`;
+      : '';
     card.innerHTML=`
       <div class="fasikul-card-top">
         <div class="fasikul-drag-handle" title="Sürükleyerek sırala" aria-hidden="true">⣿</div>
@@ -3897,6 +3905,18 @@ async function getCachedPDFKeys(){
       tx.oncomplete = ()=>db.close();
     });
   }catch(e){ return new Set(); }
+}
+async function getCachedPDFRecords(){
+  try{
+    const db = await openPdfDB();
+    return await new Promise((resolve,reject)=>{
+      const tx = db.transaction(PDF_DB_STORE,'readonly');
+      const req = tx.objectStore(PDF_DB_STORE).getAll();
+      req.onsuccess = ()=>resolve(req.result||[]);
+      req.onerror = ()=>reject(req.error);
+      tx.oncomplete = ()=>db.close();
+    });
+  }catch(e){ return []; }
 }
 async function deletePDFFromDB(dersId, fasikulId){
   try{
@@ -7286,18 +7306,22 @@ async function populateFasikulSourceSelect(editId=''){
   if(!select) return;
   select.disabled=false;
   select.innerHTML='<option value="">JSON + PDF eşleşmesi seçin</option>';
-  const used=new Set(MANIFEST.dersler.flatMap(d=>d.fasikuller.map(f=>f.id)));
   let availableCount=0;
   const permission = appState.eduDirHandle ? await appState.eduDirHandle.queryPermission({mode:'read'}).catch(()=>null) : null;
   const hasFolder = !!appState.eduDirHandle && permission==='granted';
   const cachedKeys = await getCachedPDFKeys();
-  if(!hasFolder && cachedKeys.size===0){
+  const cachedRecords = await getCachedPDFRecords();
+  // Anahtar, fasikül başka bir derse eklenince değişebilir. Bu nedenle iPad'de
+  // asıl eşleşmeyi kaydedilen File.name üzerinden yap.
+  const cachedPdfNames = new Set(cachedRecords.map(r=>normalizePdfFileName(r?.name || r?.blob?.name)));
+  if(!hasFolder && cachedKeys.size===0 && cachedPdfNames.size===0){
     select.disabled=true;
     if(hint) hint.innerHTML='Önce profil sayfasından PDF dosyalarınızı seçin. GitHub JSON adresi uygulama tarafından otomatik kullanılır.';
     return;
   }
   for(const source of BUNDLED_FASIKUL_SOURCES){
-    const cachedPdfFound = cachedKeys.has(`${source.dersId}_${source.id}`);
+    const cachedPdfFound = cachedKeys.has(`${source.dersId}_${source.id}`)
+      || cachedPdfNames.has(normalizePdfFileName(source.pdf));
     const folderPdfFound = hasFolder ? await hasLocalPdfFile(source.pdf) : false;
     const pdfFound = cachedPdfFound || folderPdfFound;
     if(!pdfFound && source.id!==editId) continue;
@@ -7306,8 +7330,7 @@ async function populateFasikulSourceSelect(editId=''){
     const dersAd=MANIFEST.dersler.find(d=>d.id===source.dersId)?.ad || source.dersId;
     const option=document.createElement('option');
     option.value=source.id;
-    option.textContent=`${used.has(source.id)&&source.id!==editId?'✓ ':''}${raw?.ad || source.json.replace(/\.json$/,'')} · ${dersAd}`;
-    option.dataset.exists = used.has(source.id) ? '1' : '0';
+    option.textContent=`${raw?.ad || source.json.replace(/\.json$/,'')} · ${dersAd}`;
     availableCount++;
     select.appendChild(option);
   }
@@ -7957,7 +7980,9 @@ function loadManifestMeta(){
     const slim = JSON.parse(saved);
     const deleted = JSON.parse(localStorage.getItem('edu_deleted_dersler')||'[]');
     slim.forEach(sd=>{
+      if(LEGACY_DEMO_DERS_IDS.has(sd.id)) return;
       if(deleted.includes(sd.id)) return;
+      sd.fasikuller=(sd.fasikuller||[]).filter(f=>!LEGACY_DEMO_FASIKUL_IDS.has(f.id));
       const existing = MANIFEST.dersler.find(d=>d.id===sd.id);
       if(existing){
         existing.ad=sd.ad; existing.ikon=sd.ikon; existing.renk=sd.renk; existing.progPct=sd.progPct;
@@ -7978,7 +8003,7 @@ function loadManifestMeta(){
         MANIFEST.dersler.push({...sd, fasikuller: sd.fasikuller.map(f=>({...f,konular:[]}))});
       }
     });
-    MANIFEST.dersler = MANIFEST.dersler.filter(d=>!deleted.includes(d.id));
+    MANIFEST.dersler = MANIFEST.dersler.filter(d=>!deleted.includes(d.id) && !LEGACY_DEMO_DERS_IDS.has(d.id));
   }catch(e){}
 }
 

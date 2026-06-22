@@ -2820,11 +2820,11 @@ window._firestoreReady = true;
     <p class="modal-sub">Fasikül, GitHub'daki hazır JSON ile profilinizde bağlı PDF klasöründeki aynı adlı PDF eşleşmesinden oluşur.</p>
     <input type="hidden" id="fasikulEditId">
     <div class="form-group" style="margin-bottom:14px">
-      <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px">GitHub JSON Kaynağı</label>
+      <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px">Fasikül Seç</label>
       <select id="fasikulSourceSelect" onchange="applyBundledSourceToForm(this.value)" style="width:100%;padding:11px 14px;background:var(--bg-3);border:1px solid var(--border-strong);border-radius:var(--radius);color:var(--text-0);font-size:13px;outline:none">
-        <option value="">GitHub JSON seçin</option>
+        <option value="">JSON + PDF eşleşmesi seçin</option>
       </select>
-      <div id="fasikulSourceHint" style="font-size:11px;color:var(--text-muted);margin-top:7px">Kullanıcı JSON seçmez; liste GitHub'daki hazır JSON dosyalarından gelir.</div>
+      <div id="fasikulSourceHint" style="font-size:11px;color:var(--text-muted);margin-top:7px">Liste, GitHub'daki JSON dosyaları ile seçili PDF klasöründeki aynı adlı PDF'lerden oluşur.</div>
     </div>
     <div class="form-group" style="margin-bottom:14px">
       <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px">Fasikül Adı</label>
@@ -6841,12 +6841,30 @@ async function updateEduDirUI(){
   listEl.style.display = 'block';
 }
 
+function normalizePdfFileName(name){
+  return String(name||'')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[ıİ]/g,'i')
+    .replace(/[ğĞ]/g,'g')
+    .replace(/[üÜ]/g,'u')
+    .replace(/[şŞ]/g,'s')
+    .replace(/[öÖ]/g,'o')
+    .replace(/[çÇ]/g,'c')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+
 async function findPdfFileHandle(pdfName){
   if(!appState.eduDirHandle) throw new Error('Klasör yok');
   try{ return await appState.eduDirHandle.getFileHandle(pdfName); }catch(e){}
   const wanted=String(pdfName).normalize('NFC').toLocaleLowerCase('tr-TR');
+  const wantedLoose=normalizePdfFileName(pdfName);
   for await(const entry of appState.eduDirHandle.values()){
-    if(entry.kind==='file' && entry.name.normalize('NFC').toLocaleLowerCase('tr-TR')===wanted) return entry;
+    if(entry.kind!=='file') continue;
+    if(entry.name.normalize('NFC').toLocaleLowerCase('tr-TR')===wanted) return entry;
+    if(normalizePdfFileName(entry.name)===wantedLoose) return entry;
   }
   throw new Error('PDF bulunamadı');
 }
@@ -7171,31 +7189,31 @@ async function populateFasikulSourceSelect(editId=''){
   const hint=document.getElementById('fasikulSourceHint');
   if(!select) return;
   select.disabled=false;
-  select.innerHTML='<option value="">GitHub JSON seçin</option>';
+  select.innerHTML='<option value="">JSON + PDF eşleşmesi seçin</option>';
   const used=new Set(MANIFEST.dersler.flatMap(d=>d.fasikuller.map(f=>f.id)));
   let availableCount=0;
   const permission = appState.eduDirHandle ? await appState.eduDirHandle.queryPermission({mode:'read'}).catch(()=>null) : null;
   if(!appState.eduDirHandle || permission!=='granted'){
     select.disabled=true;
-    if(hint) hint.innerHTML='Önce profil sayfasından PDF klasörünüzü seçin. Liste, yalnızca GitHub JSON + lokal PDF eşleşmesi olan fasikülleri gösterir.';
+    if(hint) hint.innerHTML='Önce profil sayfasından PDF klasörünüzü seçin. Sonra burada GitHub JSON + lokal PDF eşleşmeleri listelenir.';
     return;
   }
   for(const source of BUNDLED_FASIKUL_SOURCES){
-    if(source.dersId!==currentDrawerDers?.id && source.id!==editId) continue;
     const pdfFound = await hasLocalPdfFile(source.pdf);
     if(!pdfFound && source.id!==editId) continue;
     const raw=bundledSourceCache.get(source.json);
+    const dersAd=MANIFEST.dersler.find(d=>d.id===source.dersId)?.ad || source.dersId;
     const option=document.createElement('option');
     option.value=source.id;
-    option.textContent=`${used.has(source.id)&&source.id!==editId?'✓ ':''}${raw?.ad || source.json.replace(/\.json$/,'')} · PDF bulundu`;
+    option.textContent=`${used.has(source.id)&&source.id!==editId?'✓ ':''}${raw?.ad || source.json.replace(/\.json$/,'')} · ${dersAd}`;
     option.dataset.exists = used.has(source.id) ? '1' : '0';
     availableCount++;
     select.appendChild(option);
   }
   if(hint){
     hint.textContent = availableCount
-      ? 'Sadece GitHub JSON’u ve seçili klasörde aynı PDF’i bulunan fasiküller listelenir.'
-      : 'Seçili PDF klasöründe bu ders için GitHub JSON ile eşleşen PDF bulunamadı.';
+      ? `${availableCount} eşleşme bulundu. Seçince ad, sınıf ve soru sayısı JSON’dan otomatik gelir.`
+      : 'Seçili PDF klasöründe GitHub JSON dosyalarıyla eşleşen PDF bulunamadı.';
   }
   select.disabled = availableCount===0 && !editId;
 }
@@ -7205,7 +7223,7 @@ function applyBundledSourceToForm(sourceId,fillValues=true){
   const sinif=document.getElementById('fasikulSinifInput');
   const soru=document.getElementById('fasikulSoruInput');
   if(!source){
-    if(hint) hint.textContent='Fasikül eklemek için GitHub JSON kaynağı seçin.';
+    if(hint) hint.textContent='Fasikül eklemek için JSON + PDF eşleşmesi seçin.';
     if(sinif) sinif.readOnly=true;
     if(soru) soru.readOnly=true;
     return;

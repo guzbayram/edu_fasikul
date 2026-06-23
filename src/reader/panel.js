@@ -2,6 +2,7 @@ import { appState } from '../state/appState.js';
 
 function renderSoruList(sorular){
   const list = document.getElementById('soruList');
+  updateKonuDropdownLabel();
   updateRightPanelTitle();
   if(!sorular || !sorular.length){
     list.innerHTML = `
@@ -309,6 +310,80 @@ function showCozum(idx){
   goToPage(solutionPage);
   setTimeout(()=>{ appState._suppressNavSync = false; }, 800);
   showToast(`S.${soru.no} çözümü açıldı`,'info');
+}
+
+// ── Konu/Alt Konu Dropdown (toolbar sol üst) ──────────────────────────
+function toggleKonuDropdown(){
+  const menu = document.getElementById('konuDdMenu');
+  if(!menu) return;
+  const isOpen = menu.classList.contains('open');
+  // Dışarı tıklamada kapanması için listener
+  if(!isOpen){
+    buildKonuDropdown();
+    menu.classList.add('open');
+    setTimeout(()=>{
+      document.addEventListener('click', closeKonuDropdownOutside, {once:true});
+    }, 0);
+  } else {
+    menu.classList.remove('open');
+  }
+}
+
+function closeKonuDropdownOutside(e){
+  const wrap = document.getElementById('konuDdWrap');
+  if(wrap && !wrap.contains(e.target)){
+    document.getElementById('konuDdMenu')?.classList.remove('open');
+  } else {
+    document.addEventListener('click', closeKonuDropdownOutside, {once:true});
+  }
+}
+
+function buildKonuDropdown(){
+  const fas = appState.aktifFasikul;
+  const menu = document.getElementById('konuDdMenu');
+  if(!fas?.konular?.length || !menu) return;
+  menu.innerHTML = '';
+  fas.konular.forEach(konu => {
+    const altKonular = (konu.altKonular||[]).filter(ak=>!isCozumAltKonu(ak) && (ak.sorular||[]).length);
+    if(!altKonular.length) return;
+    const header = document.createElement('div');
+    header.className = 'kdd-konu';
+    header.textContent = konu.ad;
+    menu.appendChild(header);
+    altKonular.forEach(ak => {
+      const solved = (ak.sorular||[]).filter(s=>appState.sorularState[s._uid||s.no]?.answered).length;
+      const total = ak.sorular?.length || 0;
+      const isActive = ak === appState.aktifAltKonu || ak.id === appState.aktifAltKonu?.id;
+      const item = document.createElement('div');
+      item.className = 'kdd-item' + (isActive ? ' active' : '');
+      item.innerHTML = `<span class="kdd-name">${ak.ad}</span><span class="kdd-chip">${solved}/${total}</span>`;
+      item.onclick = () => selectKonuFromDropdown(konu, ak);
+      menu.appendChild(item);
+    });
+  });
+}
+
+function selectKonuFromDropdown(konu, altKonu){
+  document.getElementById('konuDdMenu')?.classList.remove('open');
+  appState.aktifKonu = konu;
+  appState.aktifAltKonu = altKonu;
+  appState.activeQuestionIdx = 0;
+  const select = document.getElementById('anaKonuSelect');
+  if(select) select.value = konu.id || konu.ad || '';
+  window.renderAltKonuList?.(konu);
+  document.querySelectorAll('.alt-konu-item').forEach(el=>el.classList.remove('active'));
+  const itemEl = document.getElementById(`altk-${altKonu.id}`);
+  if(itemEl){ itemEl.classList.add('active'); itemEl.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  renderSoruList(altKonu.sorular||[]);
+  updateKonuDropdownLabel();
+  updateTestProgress();
+}
+
+function updateKonuDropdownLabel(){
+  const label = document.getElementById('konuDdLabel');
+  if(!label) return;
+  const alt = appState.aktifAltKonu;
+  label.textContent = alt ? (alt.ad.length > 22 ? alt.ad.slice(0,20)+'…' : alt.ad) : 'Test Seç';
 }
 
 function autoStartTimer(){
@@ -1829,6 +1904,9 @@ window.toggleTimerPicker = toggleTimerPicker;
 window.setTimerDuration = setTimerDuration;
 window.updateTestProgress = updateTestProgress;
 window.autoStartTimer = autoStartTimer;
+window.toggleKonuDropdown = toggleKonuDropdown;
+window.updateKonuDropdownLabel = updateKonuDropdownLabel;
+window.selectKonuFromDropdown = selectKonuFromDropdown;
 window.playTimerAlert = playTimerAlert;
 window.updateAltKonuStats = updateAltKonuStats;
 window.resetAltKonuStats = resetAltKonuStats;

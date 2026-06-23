@@ -2446,3 +2446,5 @@ window.deleteKullanici = deleteKullanici;
 window.loadKullaniciList = loadKullaniciList;
 window.toggleKullaniciActive = toggleKullaniciActive;
 window.resetKullaniciPassword = resetKullaniciPassword;
+window.DEMO_SNAPSHOT = DEMO_SNAPSHOT;
+window.selectEduDir = selectEduDir;

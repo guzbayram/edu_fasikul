@@ -30,6 +30,15 @@ import './reader/index.js';
 import './reader/toolbar.js';
 import './reader/panel.js';
 
+// ─── Faz 4 Modülleri ────────────────────────────────────
+import './ui/toast.js';
+import './ui/router.js';
+import './ui/onboarding.js';
+import './panels/dashboard.js';
+import './panels/hatalilar.js';
+import './panels/profil.js';
+import './panels/admin.js';
+
 // ─── PDF.js ──────────────────────────────────────────────
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 pdfjsLib.GlobalWorkerOptions.workerSrc =

@@ -345,7 +345,12 @@ function updateDashboard(){
     if(!topicRows.length){
       tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:28px">Henüz konu performansı oluşmadı.</td></tr>';
     }else{
-      tbody.innerHTML=topicRows.slice(0,12).map(r=>`<tr><td>${r.name}</td><td>${r.solved}</td><td>%${r.accuracy}</td><td>${Number.isInteger(r.net)?r.net:r.net.toFixed(2)}</td><td>${r.accuracy>=75?'↗':r.accuracy>=50?'➡':'↘'}</td></tr>`).join('');
+      tbody.innerHTML=topicRows.slice(0,12).map(r=>{
+        const dPct=r.solved?Math.round(r.dogru/r.solved*100):0;
+        const yPct=r.solved?Math.round(r.yanlis/r.solved*100):0;
+        const trend=`<div class="trend-bar"><div class="tb-d" style="width:${dPct}%" title="Doğru %${dPct}"></div><div class="tb-y" style="width:${yPct}%" title="Yanlış %${yPct}"></div></div>`;
+        return `<tr><td>${r.name}</td><td>${r.solved}</td><td>%${r.accuracy}</td><td>${Number.isInteger(r.net)?r.net:r.net.toFixed(2)}</td><td>${trend}</td></tr>`;
+      }).join('');
     }
   }
   const cal=document.getElementById('calGrid');

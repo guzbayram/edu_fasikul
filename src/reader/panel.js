@@ -311,12 +311,76 @@ function showCozum(idx){
   showToast(`S.${soru.no} çözümü açıldı`,'info');
 }
 
+function autoStartTimer(){
+  if(appState.testRunning) return;
+  appState.testRunning = true;
+  appState.timer2minLast = appState.timerSec;
+  appState.timerInterval = setInterval(()=>{
+    // AFK check — 5 dk hareketsizlik
+    if(appState.lastAnswerTime && Date.now() - appState.lastAnswerTime > 300000){
+      const afkEl = document.getElementById('afkIndicator');
+      if(afkEl) afkEl.style.display = '';
+      return;
+    }
+    const afkEl = document.getElementById('afkIndicator');
+    if(afkEl) afkEl.style.display = 'none';
+    appState.timerSec++;
+    updateTimer();
+    // 2dk bip uyarısı
+    if(appState.preferences.timerAlert && appState.timerSec - appState.timer2minLast >= 120){
+      appState.timer2minLast = appState.timerSec;
+      playTimerAlert();
+    }
+  }, 1000);
+}
+
+function playTimerAlert(){
+  try{
+    const ctx = new(window.AudioContext||window.webkitAudioContext)();
+    [0, 0.15].forEach(t => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = 660;
+      gain.gain.setValueAtTime(0.12, ctx.currentTime+t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.18);
+      osc.start(ctx.currentTime+t); osc.stop(ctx.currentTime+t+0.2);
+    });
+  }catch(e){}
+}
+
+function updateAltKonuStats(altKonuId, isCorrect, isSkipped){
+  if(!altKonuId) return;
+  if(!appState.altKonuStats[altKonuId]) appState.altKonuStats[altKonuId] = {dogru:0, yanlis:0, bos:0};
+  const s = appState.altKonuStats[altKonuId];
+  if(isSkipped) s.bos++;
+  else if(isCorrect) s.dogru++;
+  else s.yanlis++;
+}
+
+function resetAltKonuStats(){
+  const alt = appState.aktifAltKonu;
+  if(!alt) return;
+  if(!confirm(`"${alt.ad}" için tüm cevaplar ve istatistikler sıfırlanacak. Emin misiniz?`)) return;
+  delete appState.altKonuStats[alt.id];
+  if(alt.sorular) alt.sorular.forEach(s=>{ delete appState.sorularState[s._uid||s.no]; });
+  stopTimer();
+  renderSoruList(alt.sorular||[]);
+  updateTestProgress();
+  showToast('İstatistikler sıfırlandı', 'info');
+  persistData();
+}
+
 function selectAnswer(soruNo, selected, correct, idx){
   if(appState.sorularState[soruNo]?.answered) return;
 
   const isCorrect = selected===correct;
   const timeSec = appState.timerSec;
   const aktifSoru = (appState.aktifAltKonu?.sorular||[]).find(s=>(s._uid||s.no)===soruNo);
+
+  // Otomatik timer başlat
+  appState.lastAnswerTime = Date.now();
+  autoStartTimer();
 
   appState.sorularState[soruNo] = {
     answered:       true,
@@ -332,6 +396,9 @@ function selectAnswer(soruNo, selected, correct, idx){
     tarih:          new Date().toISOString(),
     _synced:        false
   };
+
+  // Per-altKonu istatistik güncelle
+  updateAltKonuStats(appState.aktifAltKonu?.id, isCorrect, false);
 
   // Wrong → add to hatalilar
   if(!isCorrect){
@@ -372,6 +439,9 @@ function skipQuestion(soruNo, idx){
     konu:appState.aktifKonu?.ad||'',altKonu:appState.aktifAltKonu?.ad||'',
     zorluk:aktifSoru?.zorluk||'',tarih:new Date().toISOString(),_synced:false
   };
+  appState.lastAnswerTime = Date.now();
+  autoStartTimer();
+  updateAltKonuStats(appState.aktifAltKonu?.id, false, true);
   updateTestProgress();
   updateDashboard();
   const sorular = appState.aktifAltKonu?.sorular || [];
@@ -1455,38 +1525,25 @@ function toggleTest(){
 }
 
 function startTest(){
-  appState.testRunning=true;
-  const btn=document.getElementById('startTestBtn');
-  btn.textContent='⏸ Duraklat'; btn.classList.add('running');
-  document.getElementById('timerDisplay').classList.remove('urgent');
-  appState.timerInterval=setInterval(()=>{
-    appState.timerSec++;
-    updateTimer();
-    // Countdown check
-    if(appState.timerDurationMins>0){
-      const maxSec=appState.timerDurationMins*60;
-      if(appState.timerSec>=maxSec){ finishTest(); return; }
-      if(maxSec-appState.timerSec<=30) document.getElementById('timerDisplay').classList.add('urgent');
-    }
-  },1000);
-  showToast('Test başladı! ⏱️','info');
+  autoStartTimer();
 }
 
 function pauseTest(){
   appState.testRunning=false;
   clearInterval(appState.timerInterval);
-  const btn=document.getElementById('startTestBtn');
-  btn.textContent='▶ Devam Et'; btn.classList.remove('running');
-  showToast('Test duraklatıldı','info');
+  appState.timerInterval=null;
 }
 
 function stopTimer(){
   appState.testRunning=false;
   clearInterval(appState.timerInterval);
+  appState.timerInterval=null;
   appState.timerSec=0;
+  appState.lastAnswerTime=null;
+  appState.timer2minLast=0;
   updateTimer();
-  document.getElementById('startTestBtn').textContent='▶ Başlat';
-  document.getElementById('startTestBtn').classList.remove('running');
+  const afkEl=document.getElementById('afkIndicator');
+  if(afkEl) afkEl.style.display='none';
 }
 
 function updateTimer(){
@@ -1516,6 +1573,7 @@ function updateTestProgress(){
   const answered=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.answered&&!appState.sorularState[s._uid||s.no]?.skipped).length;
   const correct=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.correct).length;
   const wrong=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.answered&&!appState.sorularState[s._uid||s.no]?.correct&&!appState.sorularState[s._uid||s.no]?.skipped).length;
+  const blank=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.skipped).length;
   const net=correct-(wrong/4);
   const pct=sorular.length>0?Math.round(answered/sorular.length*100):0;
 
@@ -1523,9 +1581,26 @@ function updateTestProgress(){
   document.getElementById('tpFill').style.width=`${pct}%`;
   document.getElementById('tpNet').textContent=answered>0?`Net: ${net.toFixed(2)}`:'Net: —';
   document.getElementById('rpNet').textContent=answered>0?net.toFixed(2):'—';
-  // rpSoruSayisi her zaman aynı kaynaktan güncellensin → tutarsızlık olmaz
   const rpEl=document.getElementById('rpSoruSayisi');
   if(rpEl) rpEl.textContent=`${sorular.length} ${isKonuKartAltKonu(appState.aktifAltKonu)?'Kart':'Soru'}`;
+
+  // Bağımsız istatistik gösterimi
+  const statsEl = document.getElementById('altKonuStatsDisplay');
+  if(statsEl){
+    if(answered > 0 || blank > 0){
+      const netStr = net.toFixed(1);
+      const pctStr = sorular.length>0 ? Math.round(correct/sorular.length*100) : 0;
+      statsEl.innerHTML = `
+        <div class="aks-stat green">✅ ${correct}</div>
+        <div class="aks-stat red">❌ ${wrong}</div>
+        <div class="aks-stat muted">⬜ ${blank}</div>
+        <div class="aks-stat blue">Net ${netStr}</div>
+        <div class="aks-stat muted">%${pctStr}</div>
+        <button class="aks-reset-btn" onclick="resetAltKonuStats()" title="Bu alt konuyu sıfırla">↺ Sıfırla</button>`;
+    } else {
+      statsEl.innerHTML = `<span style="color:var(--text-muted);font-size:12px">Henüz soru çözülmedi</span>`;
+    }
+  }
 }
 
 function finishTest(){
@@ -1574,10 +1649,12 @@ function finishTest(){
 
 function resetTest(){
   closeModal('resultModal');
-  appState.sorularState={};
-  appState.timerSec=0;
-  updateTimer();
-  if(appState.aktifAltKonu) renderSoruList(appState.aktifAltKonu.sorular);
+  const alt = appState.aktifAltKonu;
+  if(alt?.id) delete appState.altKonuStats[alt.id];
+  if(alt?.sorular) alt.sorular.forEach(s=>{ delete appState.sorularState[s._uid||s.no]; });
+  stopTimer();
+  if(alt) renderSoruList(alt.sorular||[]);
+  updateTestProgress();
   showToast('Test sıfırlandı, tekrar çöz! 🔁','info');
 }
 
@@ -1751,6 +1828,10 @@ window.formatTime = formatTime;
 window.toggleTimerPicker = toggleTimerPicker;
 window.setTimerDuration = setTimerDuration;
 window.updateTestProgress = updateTestProgress;
+window.autoStartTimer = autoStartTimer;
+window.playTimerAlert = playTimerAlert;
+window.updateAltKonuStats = updateAltKonuStats;
+window.resetAltKonuStats = resetAltKonuStats;
 window.finishTest = finishTest;
 window.resetTest = resetTest;
 window.retryWrong = retryWrong;

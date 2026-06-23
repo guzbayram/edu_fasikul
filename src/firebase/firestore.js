@@ -84,6 +84,41 @@ export function getDashboardStats(){
   return {toplam, dogru, yanlis, bos, konular};
 }
 
+// ── Hatalilar Subcollection ───────────────────────────────────────
+
+export async function migrateHatalilarToSubcollection(uid){
+  if(!window._firestoreReady) return;
+  try{
+    const docRef = _userDocRef(uid);
+    const snap = await window._fsGetDoc(docRef);
+    if(!snap.exists()) return;
+    const arr = snap.data()?.hatalilar;
+    if(!Array.isArray(arr) || arr.length === 0) return;
+    const writes = arr.map(h => {
+      const key = _safeDocId(h.soruKey || h.soruNo || String(Date.now()));
+      const ref = window._fsDoc(window._db,'kullanicilar',uid,'hatalilar',key);
+      return window._fsSetDoc(ref,{...h,migratedAt:new Date().toISOString()},{merge:true});
+    });
+    await Promise.all(writes);
+    await window._fsSetDoc(docRef,{hatalilar:[]},{merge:true});
+    console.info(`Hatalilar migration: ${arr.length} soru subcollection'a taşındı.`);
+  }catch(e){ console.warn('Hatalilar migration hatası:',e); }
+}
+
+export function addHataliCloud(uid, h){
+  if(!uid || !window._firestoreReady) return;
+  const key = _safeDocId(h.soruKey || h.soruNo || String(Date.now()));
+  const ref = window._fsDoc(window._db,'kullanicilar',uid,'hatalilar',key);
+  window._fsSetDoc(ref,{...h,updatedAt:new Date().toISOString()},{merge:true})
+    .catch(e=>console.warn('Hatali buluta kaydedilemedi:',e));
+}
+
+export function removeHataliCloud(uid, soruKey){
+  if(!uid || !soruKey || !window._firestoreReady || !window._fsDeleteDoc) return;
+  window._fsDeleteDoc(window._fsDoc(window._db,'kullanicilar',uid,'hatalilar',_safeDocId(soruKey)))
+    .catch(e=>console.warn('Hatali buluttan silinemedi:',e));
+}
+
 // ── Firestore yazma fonksiyonları ─────────────────────────────────
 
 function _persistYeniCozumler(uid){
@@ -151,7 +186,6 @@ export function persistData(){
     window._fsSetDoc(docRef, {
       email: appState.user.email,
       name: appState.user.name,
-      hatalilar: appState.hatalilar,
       preferences: appState.preferences,
       theme: appState.theme,
       manifest: window.buildManifestMeta?.() || [],
@@ -264,6 +298,16 @@ export async function loadFromFirestore(){
       });
       appState.drawings=drawings;
     }catch(e){ console.warn('Çizimler yüklenemedi:',e); }
+
+    // Hatalilar subcollection yükle + gerekirse migration yap
+    try{
+      await migrateHatalilarToSubcollection(key);
+      const hataliSnap=await window._fsGetDocs(window._fsCollection(window._db,'kullanicilar',key,'hatalilar'));
+      if(hataliSnap.size > 0){
+        appState.hatalilar = hataliSnap.docs.map(d=>d.data());
+        localStorage.setItem('edu_hatalilar',JSON.stringify(appState.hatalilar));
+      }
+    }catch(e){ console.warn('Hatalilar subcollection yüklenemedi:',e); }
 
     document.getElementById('hataliCount').textContent=appState.hatalilar.length||0;
     document.getElementById('hataliCountBig').textContent=`${appState.hatalilar.length||0} Soru`;

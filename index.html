@@ -2235,7 +2235,7 @@ a{color:inherit;text-decoration:none}
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -2271,6 +2271,7 @@ window._fsCollection = collection;
 window._fsGetDocs = getDocs;
 window._fsDeleteDoc = deleteDoc;
 window._fsUpdateDoc = updateDoc;
+window._fsOnSnapshot = onSnapshot;
 
 // Firebase Auth fonksiyonları
 window._authCreateUser = createUserWithEmailAndPassword;
@@ -3418,6 +3419,7 @@ function enterApp(name){
 
 async function doLogout(){
   if(!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
+  stopRealtimeSync();
   if(window._authReady && appState.user && appState.user.email !== 'misafir@demo.com'){
     try{ await window._authSignOut(window._auth); }catch(e){}
   }
@@ -8900,6 +8902,83 @@ function loadPersistedData(){
   }catch(e){}
 }
 
+// ── GERÇEK ZAMANLI SENKRONIZASYON ────────────────────────────────────────────
+// Firestore onSnapshot ile cozumler ve cizimler koleksiyonlarını dinler.
+// Başka bir cihazdan gelen değişiklik <1sn içinde UI'a yansır.
+
+function startRealtimeSync(uid){
+  stopRealtimeSync(); // Önceki listener varsa temizle
+  if(!window._fsOnSnapshot || !window._db) return;
+
+  // ── Cevapları dinle ──
+  const cozumlerRef = window._fsCollection(window._db,'kullanicilar',uid,'cozumler');
+  window._realtimeUnsubCozumler = window._fsOnSnapshot(cozumlerRef, (snapshot)=>{
+    let changed = false;
+    snapshot.docChanges().forEach(change=>{
+      if(change.type==='removed') return;
+      const data = change.doc.data();
+      const soruKey = data.soruKey || decodeURIComponent(change.doc.id);
+      if(!soruKey) return;
+      const existing = appState.sorularState[soruKey];
+      const incomingTarih = data.tarih || '';
+      // Sadece uzak değişiklikleri işle (kendi yazdıklarımızı değil)
+      if(change.doc.metadata && change.doc.metadata.hasPendingWrites) return;
+      // Daha yeni veri geliyorsa güncelle
+      if(!existing || incomingTarih > (existing.tarih||'') || !existing._synced){
+        appState.sorularState[soruKey] = {
+          answered:true, selected:data.ogrenciCevap??null,
+          correct:data.dogru===true, skipped:data.atladi===true,
+          correct_answer:data.dogruCevap||'', timeSec:data.sureSaniye||0,
+          fasikulId:data.fasikulId||'', fasikulAd:data.fasikulAd||'',
+          konu:data.konu||'', altKonu:data.altKonu||'', zorluk:data.zorluk||'',
+          tarih:incomingTarih, _synced:true
+        };
+        changed = true;
+      }
+    });
+    if(changed){
+      localStorage.setItem('edu_sorularState', JSON.stringify(appState.sorularState));
+      appState.cloudSolutionsLoaded = true;
+      recalcFasikulProgress();
+      updateDashboard();
+      renderFasikulCards();
+    }
+  }, (err)=>{ console.warn('Cozumler onSnapshot hatası:',err); });
+
+  // ── Çizimleri dinle ──
+  const cizimlerRef = window._fsCollection(window._db,'kullanicilar',uid,'cizimler');
+  window._realtimeUnsubCizimler = window._fsOnSnapshot(cizimlerRef, (snapshot)=>{
+    snapshot.docChanges().forEach(change=>{
+      if(change.type==='removed') return;
+      if(change.doc.metadata && change.doc.metadata.hasPendingWrites) return;
+      const data = change.doc.data();
+      const key = data.key;
+      if(!key || !data.json) return;
+      // Mevcut çizimden farklıysa güncelle
+      if(appState.drawings[key] !== data.json){
+        appState.drawings[key] = data.json;
+        // Şu an bu sayfa açıksa canvas'ı yenile
+        const aktifId = appState.aktifFasikul?.id;
+        const currentPage = appState.currentPage;
+        const currentKey = aktifId ? `drawing_${aktifId}_p${currentPage}` : null;
+        if(currentKey === key){
+          // Tüm canvas instance'larını kontrol et
+          const fc = appState.fabricCanvases?.[currentPage] || appState.fabricCanvas;
+          if(fc){
+            fc.loadFromJSON(data.json, ()=>{ fc.renderAll(); });
+          }
+        }
+      }
+    });
+  }, (err)=>{ console.warn('Cizimler onSnapshot hatası:',err); });
+}
+
+function stopRealtimeSync(){
+  if(window._realtimeUnsubCozumler){ window._realtimeUnsubCozumler(); window._realtimeUnsubCozumler=null; }
+  if(window._realtimeUnsubCizimler){ window._realtimeUnsubCizimler(); window._realtimeUnsubCizimler=null; }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function loadFromFirestore(){
   const key = _getUserKey();
   if(!key || !window._firestoreReady) return;
@@ -9001,6 +9080,8 @@ async function loadFromFirestore(){
     renderDerslerGrid();
     if(shouldPersistAfterLoad || Object.values(appState.sorularState||{}).some(s=>s&&s.answered&&!s._synced)) persistData();
     showToast('Veriler buluttan yüklendi ☁️','success');
+    // Gerçek zamanlı senkronizasyonu başlat
+    startRealtimeSync(key);
   }catch(e){ console.warn('Firestore yükleme hatası:',e); }
 }
 

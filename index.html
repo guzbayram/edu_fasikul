@@ -371,12 +371,19 @@
     <!-- Top Toolbar -->
     <div class="reader-toolbar" id="readerToolbar">
       <!-- Nav group -->
-      <div class="tool-group">
+      <div class="tool-group toolbar-nav-group">
         <button class="tool-btn" id="mobileMenuBtn" onclick="toggleMobileLeft()" title="Konular" style="display:none">☰</button>
         <button class="tool-btn reader-back-btn" onclick="closeReader()" title="Fasiküllere dön">←</button>
         <span class="toolbar-fasikul-name" id="toolbarFasikulAd">—</span>
+        <!-- Konu/test seçim dropdown -->
+        <div class="konu-dd-wrap" id="konuDdWrap">
+          <button class="tool-btn konu-dd-btn" id="konuDdBtn" onclick="toggleKonuDropdown()" title="Konu / Test Seç">
+            <span id="konuDdLabel">Test Seç</span><span class="konu-dd-arrow">▾</span>
+          </button>
+          <div class="konu-dd-menu" id="konuDdMenu"></div>
+        </div>
       </div>
-      <div class="tool-divider"></div>
+      <div class="toolbar-spacer"></div>
       <!-- Drawing tools -->
       <div class="tool-group reader-tool-palette" id="toolGroup">
         <button class="tool-btn" data-tool="select" onclick="setTool(this,'select')" title="Seç / Taşı">🖱️</button>
@@ -406,6 +413,7 @@
         <button class="tool-btn" onclick="clearPage()" title="Sayfayı Temizle">🧹</button>
         <button class="tool-btn" onclick="saveDrawing()" title="Kaydet (Ctrl+S)">💾</button>
       </div>
+      <div class="toolbar-spacer"></div>
       <!-- Right controls -->
       <div class="tool-group reader-meta-actions">
         <label class="tool-btn" for="pdfFileInputToolbar" title="PDF Yükle / Değiştir" style="cursor:pointer">📂</label>

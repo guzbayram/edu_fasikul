@@ -18,9 +18,9 @@ import {
 } from 'firebase/auth';
 
 // ─── PDF.js (eskiden CDN: cdnjs.cloudflare.com/pdf.js/3.11.174) ───
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import pdfjsWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 window.pdfjsLib = pdfjsLib;
 
 // ─── Fabric.js (eskiden CDN: fabric.js/5.3.0) ───

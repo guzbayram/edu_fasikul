@@ -382,12 +382,31 @@ function initCatDrag(){
   const cat = document.getElementById('catBuddy');
   if(!cat || cat._dragInit) return;
   cat._dragInit = true;
+  // Boyut geri yükle (kullanıcı 1–4 kat ayarlayabilir; cihazda saklı)
+  const _applyCatSize=(s)=>{ s=Math.max(56,Math.min(220,s)); cat.style.width=s+'px'; cat.style.height=s+'px'; cat.style.fontSize=Math.round(s*0.46)+'px'; };
+  try{ const sz=parseInt(localStorage.getItem('edu_cat_size')||''); if(Number.isFinite(sz)) _applyCatSize(sz); }catch(e){}
   try{
     const p = JSON.parse(localStorage.getItem('edu_cat_pos')||'null');
     if(p && Number.isFinite(p.left) && Number.isFinite(p.top)){
       cat.style.left=p.left+'px'; cat.style.top=p.top+'px'; cat.style.right='auto'; cat.style.bottom='auto';
     }
   }catch(e){}
+  // ── Köşeden boyutlandırma tutamacı ──
+  const handle=document.getElementById('catResize');
+  if(handle){
+    let rsz=false, rs=0, rsize=0;
+    handle.addEventListener('pointerdown', e=>{
+      e.stopPropagation(); rsz=true; rs=e.clientX+e.clientY; rsize=cat.offsetWidth;
+      handle.setPointerCapture?.(e.pointerId);
+    });
+    handle.addEventListener('pointermove', e=>{
+      if(!rsz) return; e.stopPropagation();
+      _applyCatSize(rsize + (rs-(e.clientX+e.clientY))); // sol-üste sürükle → büyür
+    });
+    const rend=e=>{ if(!rsz) return; rsz=false; try{ handle.releasePointerCapture?.(e.pointerId); }catch(_e){} try{ localStorage.setItem('edu_cat_size', String(cat.offsetWidth)); }catch(_e){} };
+    handle.addEventListener('pointerup', rend);
+    handle.addEventListener('pointercancel', rend);
+  }
   let dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0;
   cat.addEventListener('pointerdown', e=>{
     dragging=true; moved=false; sx=e.clientX; sy=e.clientY;

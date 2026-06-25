@@ -574,6 +574,9 @@ a{color:inherit;text-decoration:none}
 /* Silgi boyutu butonları — kalem/renk siyahıyla karışmasın diye ayrı renk */
 .eraser-size-btn{color:#94a3b8}
 .eraser-size-btn.active{color:#f43f5e;background:color-mix(in srgb,#f43f5e 14%,transparent)}
+/* Canlı Ders butonu — aktifken yeşil + nabız */
+@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.5}}
+.live-session-btn.active{color:#16a34a;background:color-mix(in srgb,#16a34a 16%,transparent);box-shadow:0 0 0 2px color-mix(in srgb,#16a34a 45%,transparent);animation:livePulse 1.6s ease-in-out infinite}
 
 /* BOTTOM BAR */
 .reader-bottom-bar{

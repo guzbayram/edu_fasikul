@@ -99,6 +99,7 @@ async function openReader(dersId, fasikulId){
       }
     }
   }catch(e){ /* yoksay */ }
+  window.publishCanli?.();
 }
 
 function toggleMobileLeft(){
@@ -468,6 +469,7 @@ function selectAltKonu(altKonu, itemId){
   // Konu modalı kapat, soru moduna geç
   closeKonuModal();
   document.getElementById('readerRight')?.classList.add('soru-mode');
+  window.publishCanli?.();
 }
 
 

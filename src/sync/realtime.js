@@ -1,4 +1,86 @@
 import { appState } from '../state/appState.js';
+import { _getUserKey } from '../firebase/firestore.js';
+
+// ══════════════════════════════════════════════════════════
+// CANLI DERS — aynı hesapta iki cihaz arasında sayfa/konu eşitleme
+// Çift yönlü ayna: hangi cihaz gezinirse diğeri takip eder.
+// (Çizim/çözüm senkronu zaten cizimler/cozumler ile canlı.)
+// ══════════════════════════════════════════════════════════
+let _canliUnsub = null;
+let _publishTimer = null;
+
+function _liveDeviceId(){
+  if(!appState._liveDeviceId)
+    appState._liveDeviceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return appState._liveDeviceId;
+}
+
+export function publishCanli(){
+  if(!appState.liveSession || appState._liveSuppress) return;
+  const uid = _getUserKey();
+  const fas = appState.aktifFasikul;
+  if(!uid || !fas || !window._firestoreReady || !window._db) return;
+  clearTimeout(_publishTimer);
+  _publishTimer = setTimeout(()=>{
+    const ref = window._fsDoc(window._db,'kullanicilar',uid,'canli','durum');
+    window._fsSetDoc(ref, {
+      dersId: appState.aktifDers?.id || '',
+      fasikulId: fas.id,
+      page: appState.currentPage || 1,
+      altKonuId: appState.aktifAltKonu?.id || '',
+      by: _liveDeviceId(),
+      ts: Date.now()
+    }, {merge:true}).catch(e=>console.warn('Canlı yayın hatası:',e));
+  }, 220);
+}
+
+async function _followCanli(d){
+  appState._liveSuppress = true;
+  try{
+    if(d.fasikulId && appState.aktifFasikul?.id !== d.fasikulId){
+      await window.openReader?.(d.dersId, d.fasikulId);
+    }
+    if(d.altKonuId && appState.aktifAltKonu?.id !== d.altKonuId){
+      let foundAk = null;
+      (appState.aktifFasikul?.konular||[]).forEach(k=>(k.altKonular||[]).forEach(ak=>{ if(ak.id===d.altKonuId) foundAk=ak; }));
+      if(foundAk) window.selectAltKonu?.(foundAk, `altk-${foundAk.id}`);
+    }
+    if(d.page && appState.currentPage !== d.page){
+      window.goToPage?.(d.page);
+    }
+  }catch(e){ console.warn('Canlı takip hatası:',e); }
+  finally{ setTimeout(()=>{ appState._liveSuppress = false; }, 500); }
+}
+
+export function subscribeCanli(uid){
+  unsubscribeCanli();
+  if(!window._fsOnSnapshot || !window._db || !uid) return;
+  const ref = window._fsDoc(window._db,'kullanicilar',uid,'canli','durum');
+  _canliUnsub = window._fsOnSnapshot(ref, (snap)=>{
+    if(!snap.exists() || snap.metadata.hasPendingWrites) return;
+    const d = snap.data();
+    if(!d || d.by === _liveDeviceId()) return; // kendi yazdığımız
+    if(appState.liveSession) _followCanli(d);
+  }, (err)=>console.warn('Canlı dinleme hatası:',err));
+}
+export function unsubscribeCanli(){ if(_canliUnsub){ _canliUnsub(); _canliUnsub=null; } }
+
+export function toggleLiveSession(){
+  const uid = _getUserKey();
+  if(!uid || appState.user?.email === 'misafir@demo.com'){
+    window.showToast?.('Canlı Ders için hesabınla giriş yapmalısın','info'); return;
+  }
+  appState.liveSession = !appState.liveSession;
+  document.querySelectorAll('.live-session-btn').forEach(b=>b.classList.toggle('active', appState.liveSession));
+  if(appState.liveSession){
+    subscribeCanli(uid);
+    publishCanli();
+    window.showToast?.('Canlı Ders açık — sayfalar eşlenecek 👀','success');
+  } else {
+    unsubscribeCanli();
+    window.showToast?.('Canlı Ders kapalı','info');
+  }
+}
 
 export function startRealtimeSync(uid){
   stopRealtimeSync();
@@ -93,4 +175,7 @@ export function stopRealtimeSync(){
   if(window._realtimeUnsubCozumler){ window._realtimeUnsubCozumler(); window._realtimeUnsubCozumler=null; }
   if(window._realtimeUnsubCizimler){ window._realtimeUnsubCizimler(); window._realtimeUnsubCizimler=null; }
   if(window._realtimeUnsubHatalilar){ window._realtimeUnsubHatalilar(); window._realtimeUnsubHatalilar=null; }
+  unsubscribeCanli();
+  appState.liveSession = false;
+  document.querySelectorAll('.live-session-btn').forEach(b=>b.classList.remove('active'));
 }

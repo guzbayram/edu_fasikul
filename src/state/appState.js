@@ -25,6 +25,7 @@ export const appState = {
   altKonuStats: {},
   sorularState: {},
   videoWatched: {},
+  liveSession: false,
   activeQuestionIdx: 0,
   soruListMode: 'tek',
   readingMode: false,

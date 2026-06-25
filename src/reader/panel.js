@@ -711,10 +711,12 @@ function addToHatalilar(soruNo){
 
 function toggleStar(soruNo){
   if(!appState.sorularState[soruNo]) appState.sorularState[soruNo]={};
-  appState.sorularState[soruNo].starred = !appState.sorularState[soruNo].starred;
-  const btn = document.querySelector(`#soru-card-${soruNo} .soru-action[title="Yıldızla"]`);
-  if(btn) btn.classList.toggle('starred');
-  showToast(appState.sorularState[soruNo].starred?'Yıldızlı sorulara eklendi ⭐':'Yıldız kaldırıldı','info');
+  const starred = !appState.sorularState[soruNo].starred;
+  appState.sorularState[soruNo].starred = starred;
+  // Aktif kartın yıldız ikonunu güncel markup üzerinden doldur/boşalt
+  const btn = document.querySelector(`.tsk-star[onclick="toggleStar('${soruNo}')"]`);
+  if(btn) btn.classList.toggle('on', starred);
+  showToast(starred?'Yıldızlı sorulara eklendi ⭐':'Yıldız kaldırıldı','info');
   persistData();
 }
 
@@ -1789,13 +1791,28 @@ function setTimerDuration(mins, btn){
   showToast(mins>0?`Süre: ${mins} dakika ⏱️`:'Süresiz mod','info');
 }
 
+// Tek kaynak: bir soru listesi için test istatistikleri.
+// boş = atlanan + hiç işaretlenmemiş → correct+wrong+blank her zaman = total.
+function computeTestStats(sorular){
+  const total=sorular.length;
+  let correct=0, wrong=0, skipped=0;
+  sorular.forEach(s=>{
+    const st=appState.sorularState[s._uid||s.no];
+    if(!st?.answered) return;
+    if(st.skipped) skipped++;
+    else if(st.correct) correct++;
+    else wrong++;
+  });
+  const answered=correct+wrong;          // ilerleme: atlananlar hariç cevaplananlar
+  const blank=total-correct-wrong;        // atlanan + hiç dokunulmamış
+  const engaged=correct+wrong+skipped;    // kullanıcının dokunduğu soru sayısı
+  const net=correct-(wrong/4);
+  return {total, correct, wrong, skipped, answered, blank, engaged, net};
+}
+
 function updateTestProgress(){
   const sorular=appState.aktifAltKonu?.sorular||[];
-  const answered=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.answered&&!appState.sorularState[s._uid||s.no]?.skipped).length;
-  const correct=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.correct).length;
-  const wrong=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.answered&&!appState.sorularState[s._uid||s.no]?.correct&&!appState.sorularState[s._uid||s.no]?.skipped).length;
-  const blank=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.skipped).length;
-  const net=correct-(wrong/4);
+  const {correct, wrong, answered, blank, engaged, net}=computeTestStats(sorular);
   const pct=sorular.length>0?Math.round(answered/sorular.length*100):0;
 
   document.getElementById('tpProgress').textContent=`${answered} / ${sorular.length} çözüldü`;
@@ -1808,7 +1825,7 @@ function updateTestProgress(){
   // Bağımsız istatistik gösterimi
   const statsEl = document.getElementById('altKonuStatsDisplay');
   if(statsEl){
-    if(answered > 0 || blank > 0){
+    if(engaged > 0){
       const netStr = net.toFixed(1);
       const pctStr = sorular.length>0 ? Math.round(correct/sorular.length*100) : 0;
       statsEl.innerHTML = `
@@ -1829,10 +1846,7 @@ function finishTest(){
   if(!sorular.length){ showToast('Önce bir test seç','error'); return; }
 
   stopTimer();
-  const correct=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.correct).length;
-  const wrong=sorular.filter(s=>appState.sorularState[s._uid||s.no]?.answered&&!appState.sorularState[s._uid||s.no]?.correct&&!appState.sorularState[s._uid||s.no]?.skipped).length;
-  const blank=sorular.length-correct-wrong;
-  const net=(correct-wrong/4);
+  const {correct, wrong, blank, net}=computeTestStats(sorular);
   const successPct=Math.round(correct/sorular.length*100);
 
   const m=Math.floor(appState.timerSec/60),s=appState.timerSec%60;

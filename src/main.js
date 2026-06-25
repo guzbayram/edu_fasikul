@@ -345,12 +345,15 @@ const CAT_FACES = ['🐱','😺','😸','😻','😹','😽','🐈','😼','🐯
 const CAT_CHEERS = ['Harikasın! 🐾','Devam et! 💪','Süpersin! ⭐','Mükemmel! 🌟','Çok iyisin! 🎉','Aferin! 👏','Başaracaksın! 🚀','Mırr… odaklan! 😺'];
 const CAT_SPARKS = ['💖','⭐','✨','🐾','🎈','💫'];
 let _catIdx = 0;
-// Gerçek yavru kedi resmi (cataas.com — telifsiz, anahtarsız, her seferinde rastgele; ara sıra hareketli GIF)
+// Küratörlü yavru kedi görselleri (cataas.com — telifsiz/anahtarsız).
+// El ile seçildi: net, aydınlık, sevimli yavrular (karanlık/düşük çözünürlüklü olanlar elendi).
+const CURATED_CATS = ['3Z6CcYkHotdUXQC9','48xLBZGSXgxZRMAB','5enhMoq1fey3akP5','8nqmX1ooqvk4fzRU','98qvAp6CYXZMLztN','AbOAHgaV6eqUQZfL','BX0XdDZffs3PqkV7','CFnG5UsD2WCxXJ4L','0F0IKAPOdWiE755P','0GC9MRUAqxhBzPyA','1DrcyohjhwcNaRIz','1ntkA1kLWffNS2xN'];
+let _lastCat = -1;
 function _nextCatSrc(){
-  const t = Date.now() + Math.floor(Math.random()*1e6);
-  return Math.random() < 0.3
-    ? `https://cataas.com/cat/gif?t=${t}`
-    : `https://cataas.com/cat?width=160&height=160&t=${t}`;
+  let i = Math.floor(Math.random()*CURATED_CATS.length);
+  if(i === _lastCat) i = (i+1) % CURATED_CATS.length;
+  _lastCat = i;
+  return `https://cataas.com/cat/${CURATED_CATS[i]}?width=320&height=320`;
 }
 function loadCatImage(){
   const img = document.getElementById('catImg'); const emo = document.getElementById('catEmoji');
@@ -361,10 +364,15 @@ function loadCatImage(){
 }
 function pokeCat(){
   const el = document.getElementById('catBuddy'); if(!el) return;
-  loadCatImage();
-  // Resim gelmezse görünecek emoji yüzünü de döndür
   _catIdx = (_catIdx + 1) % CAT_FACES.length;
-  const emo = document.getElementById('catEmoji'); if(emo) emo.textContent = CAT_FACES[_catIdx];
+  const emo = document.getElementById('catEmoji'); const img = document.getElementById('catImg');
+  if(_catMode()==='emoji'){
+    if(img){ img.style.display='none'; }
+    if(emo){ emo.style.display=''; emo.textContent = CAT_FACES[_catIdx]; }
+  } else {
+    if(emo) emo.textContent = CAT_FACES[_catIdx];
+    loadCatImage();
+  }
   el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   const s = document.createElement('span');
   s.className = 'cat-spark';
@@ -376,6 +384,25 @@ function pokeCat(){
   if(Math.random() < 0.45) window.showToast?.(CAT_CHEERS[Math.floor(Math.random()*CAT_CHEERS.length)], 'success');
 }
 window.pokeCat = pokeCat;
+
+// Kedi profil ayarları: aç/kapa + görünüm (emoji / canlı foto) — cihaz başına
+function _catOn(){ return localStorage.getItem('edu_cat_on') !== '0'; }   // varsayılan açık
+function _catMode(){ return localStorage.getItem('edu_cat_mode') || 'canli'; }
+function applyCatVisibility(){
+  const c=document.getElementById('catBuddy'); if(c) c.style.display = _catOn() ? '' : 'none';
+  const t=document.getElementById('catOnToggle'); if(t){ const on=_catOn(); t.textContent=on?'Açık':'Kapalı'; t.classList.toggle('off', !on); }
+  document.querySelectorAll('[data-catmode]').forEach(b=>b.classList.toggle('active', b.dataset.catmode===_catMode()));
+}
+function toggleCatOn(){ localStorage.setItem('edu_cat_on', _catOn() ? '0' : '1'); applyCatVisibility(); }
+function setCatMode(m){
+  localStorage.setItem('edu_cat_mode', m); applyCatVisibility();
+  const img=document.getElementById('catImg'), emo=document.getElementById('catEmoji');
+  if(m==='emoji'){ if(img){ img.style.display='none'; img.removeAttribute('src'); } if(emo){ emo.style.display=''; emo.textContent=CAT_FACES[_catIdx]||'🐱'; } }
+  else { loadCatImage(); }
+}
+window.toggleCatOn = toggleCatOn;
+window.setCatMode = setCatMode;
+window.applyCatVisibility = applyCatVisibility;
 
 // Kedi: sürükle-taşı (yüzen pencere) + dokununca değiş; konum cihazda saklanır
 function initCatDrag(){
@@ -434,7 +461,8 @@ function initCatDrag(){
   };
   cat.addEventListener('pointerup', end);
   cat.addEventListener('pointercancel', end);
-  loadCatImage(); // başlangıçta gerçek bir kedi resmi göster
+  applyCatVisibility();
+  if(_catOn() && _catMode()==='canli') loadCatImage(); // başlangıçta gerçek bir kedi resmi göster
 }
 window.initCatDrag = initCatDrag;
 

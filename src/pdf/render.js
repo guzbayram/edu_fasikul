@@ -429,6 +429,11 @@ function initPDFContextMenu(){
         <span style="font-size:15px">🔢</span>
         <div><div style="font-weight:600;font-size:13px">Sayfaya Git…</div><div style="font-size:11px;color:var(--text-muted)">Sayfa numarası gir</div></div>
       </button>
+      <div style="height:1px;background:var(--border);margin:6px 0"></div>
+      <button class="ctx-item" id="ctxFullscreen" onclick="window.toggleSolveMode&&window.toggleSolveMode();document.getElementById('pdfContextMenu').style.display='none'">
+        <span style="font-size:15px">⛶</span>
+        <div><div style="font-weight:600;font-size:13px">Tam Ekran</div><div style="font-size:11px;color:var(--text-muted)">Soru kartı tüm ekranı kaplar</div></div>
+      </button>
     `;
     document.body.appendChild(menu);
 
@@ -851,11 +856,20 @@ function initLongPressDraw(){
     }
     return appState.fabricCanvas || null;
   }
+  function startDraw(){
+    s.mode = 'draw';
+    s.fc = findFabricAt(s.x0, s.y0);
+    if(s.fc?.freeDrawingBrush){
+      try{ s.fc.freeDrawingBrush.onMouseDown(s.fc.getPointer({clientX:s.x0, clientY:s.y0}), { e:null }); }catch(_e){}
+      navigator.vibrate?.(10);
+    }
+  }
   function endStroke(){
     if(s && s.mode === 'draw' && s.fc?.freeDrawingBrush){
       try{ s.fc.freeDrawingBrush.onMouseUp({ e: null }); }catch(_e){}
     }
   }
+  const isSolve = ()=> document.getElementById('reader-overlay')?.classList.contains('solve-mode');
 
   wrap.addEventListener('touchstart', e => {
     if(e.touches.length !== 1){ if(s){ endStroke(); s = null; } return; }
@@ -864,15 +878,12 @@ function initLongPressDraw(){
     if(!FREE_DRAW.has(appState.drawTool)) return;  // diğer araçlar mevcut davranış
     e.preventDefault(); e.stopPropagation();        // Fabric bu dokunuşu almasın
     appState._touchGestureActive = true;
-    s = { x0:t.clientX, y0:t.clientY, sl:wrap.scrollLeft, st:wrap.scrollTop, mode:'pending', fc:null, timer:null };
+    // inv = tam ekran çözüm modu → davranış ters: hareket=çiz, bekle=pan
+    s = { x0:t.clientX, y0:t.clientY, sl:wrap.scrollLeft, st:wrap.scrollTop, mode:'pending', fc:null, timer:null, inv:isSolve() };
     s.timer = setTimeout(()=>{
       if(!s || s.mode !== 'pending') return;
-      s.mode = 'draw';
-      s.fc = findFabricAt(s.x0, s.y0);
-      if(s.fc?.freeDrawingBrush){
-        try{ s.fc.freeDrawingBrush.onMouseDown(s.fc.getPointer({clientX:s.x0, clientY:s.y0}), { e }); }catch(_e){}
-        navigator.vibrate?.(12);
-      }
+      if(s.inv) s.mode = 'pan';   // tam ekran: 250ms bekle → pan
+      else startDraw();           // normal: 250ms bekle → çiz
     }, HOLD_MS);
   }, { passive:false, capture:true });
 
@@ -880,10 +891,10 @@ function initLongPressDraw(){
     if(!s || e.touches.length !== 1) return;
     e.preventDefault(); e.stopPropagation();        // gesture boyunca Fabric'i bloke et
     const t = e.touches[0];
-    if(s.mode === 'pending'){
-      if(Math.hypot(t.clientX - s.x0, t.clientY - s.y0) > MOVE_THRESHOLD){
-        clearTimeout(s.timer); s.mode = 'pan';
-      }
+    if(s.mode === 'pending' && Math.hypot(t.clientX - s.x0, t.clientY - s.y0) > MOVE_THRESHOLD){
+      clearTimeout(s.timer);
+      if(s.inv) startDraw();      // tam ekran: hareket → hemen çiz
+      else s.mode = 'pan';        // normal: hareket → pan
     }
     if(s.mode === 'pan'){
       wrap.scrollLeft = s.sl - (t.clientX - s.x0);
@@ -918,6 +929,7 @@ window.renderPDFPage = renderPDFPage;
 window.renderFallbackPage = renderFallbackPage;
 window.setViewMode = setViewMode;
 window.openViewModeMenu = openViewModeMenu;
+window.showContextMenu = showContextMenu;
 window.initPDFContextMenu = initPDFContextMenu;
 window.initTouchGestures = initTouchGestures;
 window.initLongPressDraw = initLongPressDraw;

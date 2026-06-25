@@ -85,18 +85,19 @@ function initSolveDoubleTap(){
   if(!wrap || wrap.dataset.solveDtReady) return;
   wrap.dataset.solveDtReady = '1';
   let lastTap = 0, lastX = 0, lastY = 0;
+  // Çift dokunma → Görünüm Modu menüsü (Tek Sayfa / Sürekli / Sayfaya Git / Tam Ekran)
   wrap.addEventListener('touchend', e=>{
     if(e.changedTouches.length !== 1) return;
     const t = e.changedTouches[0];
     const now = Date.now();
     if(now - lastTap < 300 && Math.hypot(t.clientX - lastX, t.clientY - lastY) < 30){
       lastTap = 0;
-      if(isPhone()) toggleSolveMode();
+      window.showContextMenu?.(t.clientX, t.clientY);
     } else {
       lastTap = now; lastX = t.clientX; lastY = t.clientY;
     }
   }, { passive:true });
-  wrap.addEventListener('dblclick', ()=>{ if(window.innerWidth <= 820) toggleSolveMode(); });
+  wrap.addEventListener('dblclick', e=>{ window.showContextMenu?.(e.clientX, e.clientY); });
 }
 
 window.enterSolveMode = enterSolveMode;

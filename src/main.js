@@ -337,6 +337,29 @@ window.setUiIcon = setUiIcon;
 window.applyUiIcons = applyUiIcons;
 window.renderIconSettings = renderIconSettings;
 
+// ══════════════════════════════
+// MOTİVASYON KEDİSİ 🐾 — tıkladıkça değişir + zıplar (mini ödül)
+// ══════════════════════════════
+const CAT_FACES = ['🐱','😺','😸','😻','😹','😽','🐈','😼','🐯','🦁'];
+const CAT_CHEERS = ['Harikasın! 🐾','Devam et! 💪','Süpersin! ⭐','Mükemmel! 🌟','Çok iyisin! 🎉','Aferin! 👏','Başaracaksın! 🚀','Mırr… odaklan! 😺'];
+const CAT_SPARKS = ['💖','⭐','✨','🐾','🎈','💫'];
+let _catIdx = 0;
+function pokeCat(){
+  const el = document.getElementById('catBuddy'); if(!el) return;
+  _catIdx = (_catIdx + 1) % CAT_FACES.length;
+  el.textContent = CAT_FACES[_catIdx];
+  el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  const s = document.createElement('span');
+  s.className = 'cat-spark';
+  s.textContent = CAT_SPARKS[Math.floor(Math.random()*CAT_SPARKS.length)];
+  s.style.right = (8 + Math.random()*28) + 'px';
+  s.style.bottom = '112px';
+  el.parentElement?.appendChild(s);
+  setTimeout(()=>s.remove(), 1000);
+  if(Math.random() < 0.45) window.showToast?.(CAT_CHEERS[Math.floor(Math.random()*CAT_CHEERS.length)], 'success');
+}
+window.pokeCat = pokeCat;
+
 function renderDate(){
   const d = new Date();
   document.getElementById('todayDate').textContent = d.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});

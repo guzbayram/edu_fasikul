@@ -156,7 +156,6 @@ function renderFasikulCards(fasikuller, ders){
         </div>
         <button class="fasikul-card-menu-btn" type="button" aria-label="Fasikül seçenekleri" title="Fasikül seçenekleri" onclick="event.stopPropagation();toggleFasikulMenu(this)">⋮</button>
         <div class="fasikul-card-menu">
-          <button onclick="event.stopPropagation();openFasikulModal('${fas.id}')">✏️ Fasikülü düzenle</button>
           <button onclick="event.stopPropagation();resetFasikulData('${ders.id}','${fas.id}')" style="color:var(--red)">🗑️ Çalışmayı sıfırla</button>
           <div class="fasikul-menu-divider"></div>
           <div class="fasikul-color-label">Kart rengi</div>

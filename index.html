@@ -370,6 +370,11 @@
         <button class="tool-btn" data-tool="text" onclick="setTool(this,'text')" title="Metin Kutusu">🔤</button>
         <button class="tool-btn" data-tool="eraser" onclick="setTool(this,'eraser')" title="Silgi">🗑️</button>
       </div>
+      <div class="tool-group eraser-size-group" style="display:none">
+        <button class="tool-btn eraser-size-btn" data-esize="8" onclick="setEraserSize(this,8)" title="Küçük silgi"><span style="font-size:9px;line-height:1">⬤</span></button>
+        <button class="tool-btn eraser-size-btn active" data-esize="22" onclick="setEraserSize(this,22)" title="Orta silgi"><span style="font-size:14px;line-height:1">⬤</span></button>
+        <button class="tool-btn eraser-size-btn" data-esize="48" onclick="setEraserSize(this,48)" title="Büyük silgi"><span style="font-size:20px;line-height:1">⬤</span></button>
+      </div>
       <div class="tool-divider"></div>
       <!-- Color & size -->
       <div class="tool-group reader-color-palette" id="colorGroup">
@@ -499,6 +504,11 @@
       <div class="rp-tools-bar" id="rpToolsBar">
         <button class="tool-btn active" data-tool="pen" onclick="setTool(this,'pen')" title="Kalem">✏️</button>
         <button class="tool-btn" data-tool="eraser" onclick="setTool(this,'eraser')" title="Silgi">🗑️</button>
+        <span class="eraser-size-group" style="display:none;gap:4px;align-items:center">
+          <button class="tool-btn eraser-size-btn" data-esize="8" onclick="setEraserSize(this,8)" title="Küçük silgi"><span style="font-size:9px;line-height:1">⬤</span></button>
+          <button class="tool-btn eraser-size-btn active" data-esize="22" onclick="setEraserSize(this,22)" title="Orta silgi"><span style="font-size:14px;line-height:1">⬤</span></button>
+          <button class="tool-btn eraser-size-btn" data-esize="48" onclick="setEraserSize(this,48)" title="Büyük silgi"><span style="font-size:20px;line-height:1">⬤</span></button>
+        </span>
         <span class="rp-tools-sep"></span>
         <div class="color-dot" style="background:#1a1a2e" data-color="#1a1a2e" onclick="setColor(this)" title="Siyah"></div>
         <div class="color-dot" style="background:#2563eb" data-color="#2563eb" onclick="setColor(this)" title="Mavi"></div>

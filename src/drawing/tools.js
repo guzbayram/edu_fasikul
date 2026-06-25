@@ -4,7 +4,18 @@ function setTool(btn, tool){
   document.querySelectorAll('.tool-btn[data-tool]').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll(`.tool-btn[data-tool="${tool}"]`).forEach(b=>b.classList.add('active'));
   appState.drawTool = tool;
+  // Silgi boyutu seçeneklerini yalnızca silgi seçiliyken göster
+  document.querySelectorAll('.eraser-size-group').forEach(g=>{
+    g.style.display = (tool==='eraser') ? 'inline-flex' : 'none';
+  });
   applyTool(tool);
+}
+
+function setEraserSize(btn, size){
+  appState.eraserSize = size;
+  document.querySelectorAll('.eraser-size-btn').forEach(b=>{
+    b.classList.toggle('active', Number(b.dataset.esize) === size);
+  });
 }
 
 function applyTool(tool){
@@ -77,20 +88,24 @@ function applyTool(tool){
         fc.hoverCursor='cell';
         setObjectsInteractive(fc, false);
         let _erasing = false, _eraseChanged = false;
-        fc._eraserToolHandler = (opt)=>{
-          _erasing = true; _eraseChanged = false;
-          const target = opt.target || fc.findTarget(opt.e, false);
-          if(!target) return;
-          fc.remove(target); fc.discardActiveObject(); fc.requestRenderAll();
-          _eraseChanged = true;
+        const _eraseAt = (opt)=>{
+          const p = fc.getPointer(opt.e);
+          const r = appState.eraserSize || 8;
+          let changed = false;
+          // 1) İmlecin tam altındaki nesneyi sil (hassas)
+          const t = opt.target || fc.findTarget(opt.e, false);
+          if(t){ fc.remove(t); changed = true; }
+          // 2) Silgi yarıçapı içindeki nesneleri de sil
+          fc.getObjects().slice().forEach(obj=>{
+            const b = obj.getBoundingRect();
+            const dx = Math.max(b.left - p.x, 0, p.x - (b.left + b.width));
+            const dy = Math.max(b.top - p.y, 0, p.y - (b.top + b.height));
+            if(Math.hypot(dx, dy) <= r){ fc.remove(obj); changed = true; }
+          });
+          if(changed){ fc.discardActiveObject(); fc.requestRenderAll(); _eraseChanged = true; }
         };
-        fc._eraserMoveHandler = (opt)=>{
-          if(!_erasing) return;
-          const target = opt.target || fc.findTarget(opt.e, false);
-          if(!target) return;
-          fc.remove(target); fc.discardActiveObject(); fc.requestRenderAll();
-          _eraseChanged = true;
-        };
+        fc._eraserToolHandler = (opt)=>{ _erasing = true; _eraseChanged = false; _eraseAt(opt); };
+        fc._eraserMoveHandler = (opt)=>{ if(_erasing) _eraseAt(opt); };
         fc._eraserUpHandler = ()=>{
           _erasing = false;
           if(_eraseChanged){
@@ -98,6 +113,8 @@ function applyTool(tool){
             appState.undoStack.push(JSON.stringify(fc));
             appState.redoStack = [];
             _eraseChanged = false;
+            // Silme bitince otomatik kaleme dön (tekrar kalem seçmeye gerek kalmasın)
+            setTimeout(()=>{ if(appState.drawTool==='eraser') setTool(null, 'pen'); }, 0);
           }
         };
         fc.on('mouse:down', fc._eraserToolHandler);
@@ -181,6 +198,7 @@ function clearPage(){
 // ── Bu modülün fonksiyonlarını window'a kaydet ──
 // main.js ve diğer modüller window.xxx ile çağırabilsin
 window.setTool = setTool;
+window.setEraserSize = setEraserSize;
 window.applyTool = applyTool;
 window.setColor = setColor;
 window.undoDraw = undoDraw;

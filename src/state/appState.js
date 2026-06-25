@@ -14,6 +14,7 @@ export const appState = {
   drawTool: 'pen',
   drawColor: '#dc2626',
   brushSize: 3,
+  eraserSize: 22,
   testRunning: false,
   timerSec: 0,
   timerInterval: null,

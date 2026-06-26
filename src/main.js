@@ -301,6 +301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   initCardZoomPan();
   initTouchGestures();
+  if(localStorage.getItem('edu_draw_debug') !== '0') window.__DRAW_DEBUG = true; // GEÇİCİ tanı
   initLongPressDraw();
 });
 

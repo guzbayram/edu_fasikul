@@ -856,6 +856,40 @@ function initLongPressDraw(){
   // Not: Çizim koordinatı patchGetPointer (canvas.js) ile her olayda canlı
   // getBoundingClientRect'ten hesaplanıyor; offset tazeleme/calcOffset gerekmez.
 
+  // ── GEÇİCİ TANI KATMANI (window.__DRAW_DEBUG) ────────────────────────────
+  // Parmağın clientX/clientY'sine FIXED kırmızı nokta + canlı sayısal HUD.
+  // Nokta parmağın altındaysa: sorun canvas eşlemesinde. Değilse: iOS dokunma
+  // koordinat sistemi (visual≠layout viewport). Tanı bitince kaldırılacak.
+  if(window.__DRAW_DEBUG){
+    let dot = document.getElementById('__dbgDot');
+    if(!dot){
+      dot = document.createElement('div');
+      dot.id = '__dbgDot';
+      dot.style.cssText = 'position:fixed;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:rgba(255,40,40,.55);border:2px solid #fff;box-shadow:0 0 0 1px #000;z-index:99999;pointer-events:none;left:-99px;top:-99px';
+      document.body.appendChild(dot);
+      const hud = document.createElement('div');
+      hud.id = '__dbgHud';
+      hud.style.cssText = 'position:fixed;left:4px;top:4px;z-index:99999;background:rgba(0,0,0,.8);color:#0f0;font:11px/1.35 monospace;padding:5px 7px;border-radius:6px;pointer-events:none;white-space:pre';
+      document.body.appendChild(hud);
+    }
+    const dbg = e => {
+      const t = e.touches && e.touches[0]; if(!t) return;
+      dot.style.left = t.clientX + 'px';
+      dot.style.top  = t.clientY + 'px';
+      const fc = appState.fabricCanvas, up = fc && fc.upperCanvasEl;
+      const r = up ? up.getBoundingClientRect() : {top:0,left:0,width:0,height:0};
+      const vv = window.visualViewport;
+      const ptrY = up ? (t.clientY - r.top) * (up.height/(r.height||1)) : 0;
+      document.getElementById('__dbgHud').textContent =
+        `clY:${t.clientY|0} rTop:${r.top|0} rH:${r.height|0}\n` +
+        `cvH:${up?up.height:0} wrapScroll:${wrap.scrollTop|0}\n` +
+        `vvTop:${vv?(vv.offsetTop|0):'-'} vvH:${vv?(vv.height|0):'-'}\n` +
+        `ptrY:${ptrY|0}`;
+    };
+    wrap.addEventListener('touchstart', dbg, { passive:true, capture:true });
+    wrap.addEventListener('touchmove',  dbg, { passive:true, capture:true });
+  }
+
   const MOVE_THRESHOLD = 8;   // px — jest başladı eşiği
   const MENU_HOLD = 1000;     // 1sn sabit basış → Görünüm Modu menüsü
   const FLICK_MAX_MS = 500;   // bu süreden hızlı + uzun kaydırma = flick (sayfa geçişi)

@@ -13,10 +13,13 @@ function toggleReaderPanel(side){
 
 function toggleFullscreen(){
   const el = document.getElementById('reader-overlay');
-  if(!document.fullscreenElement){
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if(!fsEl){
     const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
     if(req){
-      Promise.resolve(req.call(el)).catch(()=>showToast('Tam ekran bu tarayıcıda engellendi','error'));
+      Promise.resolve(req.call(el)).catch(()=>iosFsHint());
+    } else {
+      iosFsHint(); // iOS Safari (iPhone): div tam ekranı desteklenmez
     }
   } else {
     const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen;
@@ -24,6 +27,12 @@ function toggleFullscreen(){
       Promise.resolve(exit.call(document)).catch(()=>showToast('Tam ekrandan çıkılamadı','error'));
     }
   }
+}
+function iosFsHint(){
+  // iOS'ta tarayıcı çubuğunu gizlemenin tek yolu: Ana Ekrana Ekle (standalone PWA)
+  const standalone = window.navigator.standalone || window.matchMedia('(display-mode:standalone)').matches;
+  if(standalone) return; // zaten tam ekran (ana ekrandan açılmış)
+  showToast('Tam ekran için: Paylaş ⬆️ → "Ana Ekrana Ekle" 📲 — sonra oradan aç','info');
 }
 
 function toggleAppFullscreen(){

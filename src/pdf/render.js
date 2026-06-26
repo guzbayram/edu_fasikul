@@ -853,69 +853,25 @@ function initLongPressDraw(){
   if(!wrap || wrap.dataset.lpDrawReady) return;
   wrap.dataset.lpDrawReady = '1';
 
-  const FREE_DRAW = new Set(['pen','tukenmez','marker']);
   const MOVE_THRESHOLD = 8;   // px — jest başladı eşiği
   const MENU_HOLD = 1000;     // 1sn sabit basış → Görünüm Modu menüsü
-  const FLICK_MAX_MS = 500;   // bu süreden hızlı + uzun kaydırma = flick (soru geçişi)
+  const FLICK_MAX_MS = 500;   // bu süreden hızlı + uzun kaydırma = flick (sayfa geçişi)
   const FLICK_MIN = 70;       // flick için min mesafe
   let s = null; // gesture state
 
-  function findFabricAt(x, y){
-    const els = document.elementsFromPoint(x, y) || [];
-    const all = Object.values(appState.fabricCanvases || {});
-    if(appState.fabricCanvas) all.push(appState.fabricCanvas);
-    for(const el of els){
-      for(const fc of all){
-        if(fc && (fc.upperCanvasEl === el || fc.wrapperEl?.contains(el))) return fc;
-      }
-    }
-    return appState.fabricCanvas || null;
-  }
-  // Fabric brush'u manuel sürerken gerçek/null event geçmek _isMainEvent & getPointer'ı
-  // patlatıyor (boş touches). Sahte mouse event + rect tabanlı koordinat kullan.
-  const FAKE_E = { button: 0 };
-  function pointerFor(fc, clientX, clientY){
-    const rect = fc.upperCanvasEl.getBoundingClientRect();
-    // iOS: touch.clientX/Y = VISUAL viewport, getBoundingClientRect = LAYOUT viewport.
-    // Aradaki fark visualViewport.offset → eklemezsek çizim ~offset kadar yukarı/sola kayar.
-    const vv = window.visualViewport;
-    const ox = vv ? vv.offsetLeft : 0;
-    const oy = vv ? vv.offsetTop  : 0;
-    const sx = rect.width  ? fc.width  / rect.width  : 1;
-    const sy = rect.height ? fc.height / rect.height : 1;
-    return new fabric.Point((clientX + ox - rect.left) * sx, (clientY + oy - rect.top) * sy);
-  }
-  function startDraw(){
-    s.mode = 'draw';
-    s.fc = findFabricAt(s.x0, s.y0);
-    if(s.fc?.freeDrawingBrush){
-      try{ s.fc.freeDrawingBrush.onMouseDown(pointerFor(s.fc, s.x0, s.y0), { e:FAKE_E }); }catch(_e){}
-      navigator.vibrate?.(10);
-    }
-  }
-  function endStroke(){
-    if(s && s.mode === 'draw' && s.fc?.freeDrawingBrush){
-      try{ s.fc.freeDrawingBrush.onMouseUp({ e: FAKE_E }); }catch(_e){}
-    }
-  }
-  // ARAÇ = MOD (tahmin yok → akış su gibi):
-  //  ✏️ kalem/tükenmez/fosforlu → parmak hareketi ÇİZER
-  //  ✋ Gez (select)            → parmak PAN; hızlı kaydırma (flick) SORU GEÇİRİR
-  //  🗑️ silgi / metin          → Fabric'in kendi dokunma davranışı (devralmayız)
-  //  Her ikisi: 1sn sabit basış → Görünüm Modu menüsü · 2 parmak → pinch zoom
+  // SADECE ✋ Gez (select) modunda devralırız: PAN + flick (sayfa) + 1sn menü.
+  // Kalem/tükenmez/fosforlu/silgi/metin → Fabric'in KENDİ dokunma motoru çizer
+  // (doğru koordinat — manuel fırça sürme/koordinat hesabı tamamen kaldırıldı).
+  // 2 parmak → pinch zoom (initTouchGestures).
   wrap.addEventListener('touchstart', e => {
-    if(e.touches.length !== 1){ if(s){ clearTimeout(s.menuTimer); endStroke(); s = null; } return; }
+    if(e.touches.length !== 1){ if(s){ clearTimeout(s.menuTimer); s = null; } return; }
+    if(appState.drawTool !== 'select') return;   // çizim araçları → Fabric native, devralma yok
     const t = e.touches[0];
-    if(t.touchType === 'stylus') return;          // Apple Pencil → Fabric doğrudan çizsin
-    const tool = appState.drawTool;
-    const isDraw = FREE_DRAW.has(tool);
-    const isNav  = (tool === 'select');
-    if(!isDraw && !isNav) return;                 // silgi/metin → Fabric native
+    if(t.touchType === 'stylus') return;
     e.preventDefault(); e.stopPropagation();
     appState._touchGestureActive = true;
     s = { x0:t.clientX, y0:t.clientY, lastX:t.clientX, lastY:t.clientY,
-          sl:wrap.scrollLeft, st:wrap.scrollTop, t0:Date.now(),
-          mode:'pending', fc:null, isDraw, isNav, menuTimer:null };
+          sl:wrap.scrollLeft, st:wrap.scrollTop, t0:Date.now(), mode:'pending', menuTimer:null };
     s.menuTimer = setTimeout(()=>{
       if(!s || s.mode !== 'pending') return;
       s.mode = 'menu';
@@ -930,31 +886,25 @@ function initLongPressDraw(){
     const t = e.touches[0];
     s.lastX = t.clientX; s.lastY = t.clientY;
     if(s.mode === 'pending' && Math.hypot(t.clientX - s.x0, t.clientY - s.y0) > MOVE_THRESHOLD){
-      clearTimeout(s.menuTimer);
-      if(s.isDraw) startDraw();   // çizim aracı → hemen çiz
-      else s.mode = 'pan';        // ✋ Gez → pan
+      clearTimeout(s.menuTimer); s.mode = 'pan';
     }
     if(s.mode === 'pan'){
       wrap.scrollLeft = s.sl - (t.clientX - s.x0);
       wrap.scrollTop  = s.st - (t.clientY - s.y0);
-    } else if(s.mode === 'draw' && s.fc?.freeDrawingBrush){
-      try{ s.fc.freeDrawingBrush.onMouseMove(pointerFor(s.fc, t.clientX, t.clientY), { e:FAKE_E }); }catch(_e){}
     }
   }, { passive:false, capture:true });
 
   const onEnd = ()=>{
     if(!s) return;
     clearTimeout(s.menuTimer);
-    // ✋ Gez modunda hızlı kaydırma (flick) → sağa/yukarı sonraki, sol/aşağı önceki soru
-    if(s.isNav && s.mode === 'pan'){
+    // Sol/yukarı flick → sonraki sayfa, sağ/aşağı → önceki (changePage tüm PDF'te serbest)
+    if(s.mode === 'pan'){
       const dx = s.lastX - s.x0, dy = s.lastY - s.y0, dur = Date.now() - s.t0;
       if(dur < FLICK_MAX_MS && Math.max(Math.abs(dx), Math.abs(dy)) > FLICK_MIN){
-        // Sol/yukarı kaydır → SONRAKİ sayfa, sağ/aşağı → ÖNCEKİ (changePage tüm PDF'te serbest gezer)
         const dir = (Math.abs(dx) >= Math.abs(dy)) ? (dx < 0 ? 1 : -1) : (dy < 0 ? 1 : -1);
         window.changePage?.(dir);
       }
     }
-    endStroke();
     s = null; appState._touchGestureActive = false;
   };
   wrap.addEventListener('touchend',    onEnd, { passive:false, capture:true });

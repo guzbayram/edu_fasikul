@@ -876,9 +876,14 @@ function initLongPressDraw(){
   const FAKE_E = { button: 0 };
   function pointerFor(fc, clientX, clientY){
     const rect = fc.upperCanvasEl.getBoundingClientRect();
+    // iOS: touch.clientX/Y = VISUAL viewport, getBoundingClientRect = LAYOUT viewport.
+    // Aradaki fark visualViewport.offset → eklemezsek çizim ~offset kadar yukarı/sola kayar.
+    const vv = window.visualViewport;
+    const ox = vv ? vv.offsetLeft : 0;
+    const oy = vv ? vv.offsetTop  : 0;
     const sx = rect.width  ? fc.width  / rect.width  : 1;
     const sy = rect.height ? fc.height / rect.height : 1;
-    return new fabric.Point((clientX - rect.left) * sx, (clientY - rect.top) * sy);
+    return new fabric.Point((clientX + ox - rect.left) * sx, (clientY + oy - rect.top) * sy);
   }
   function startDraw(){
     s.mode = 'draw';

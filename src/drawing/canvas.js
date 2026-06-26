@@ -18,11 +18,27 @@ function applyDrawingScale(fc, key){
 }
 window.applyDrawingScale = applyDrawingScale;
 
+// Fabric'in varsayılan calcOffset'i, iç-kaydırılabilir konteynerlerin (canvas-wrap)
+// scroll'unu ÇİFT sayıyor (getBoundingClientRect zaten kaydırmayı içerirken üstüne
+// ancestor scrollTop ekliyor) → yatayda kart kayınca çizim scroll kadar yukarı kayıyordu.
+// getBoundingClientRect + yalnız window scroll ile doğru hesapla.
+function patchCalcOffset(fc){
+  fc.calcOffset = function(){
+    const r = this.lowerCanvasEl.getBoundingClientRect();
+    this._offset = { left: r.left + (window.pageXOffset||0), top: r.top + (window.pageYOffset||0) };
+    return this;
+  };
+  fc.calcOffset();
+  return fc;
+}
+window.patchCalcOffset = patchCalcOffset;
+
 function initFabricForPage(canvasEl, w, h, pageNum){
   const fc = new fabric.Canvas(canvasEl, {
     isDrawingMode: false, selection: true,
     width: w, height: h, backgroundColor: 'transparent'
   });
+  patchCalcOffset(fc);
   fc._pageNum = pageNum;
   appState.fabricCanvases[pageNum] = fc;
 
@@ -123,6 +139,7 @@ function initFabricOnCanvas(canvasEl, w, h){
     height: h,
     backgroundColor: 'transparent'
   });
+  patchCalcOffset(fc);
   appState.fabricCanvas = fc;
 
   // Sayfa için kayıtlı çizim varsa yükle

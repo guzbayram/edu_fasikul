@@ -635,7 +635,7 @@ function renderDerslerGrid(){
 // ══════════════════════════════
 // DRAWER
 // ══════════════════════════════
-let currentDrawerDers = null;
+// Aktif ders tek kaynakta: window.currentDrawerDers (split-brain önler)
 let allFasikulCards = [];
 const FASIKUL_THEME_COLORS = ['#7c73ff','#ec6471','#f59e0b','#22c55e','#14b8a6','#38bdf8','#d946ef'];
 let draggedFasikulId = null;
@@ -645,7 +645,6 @@ function openDrawer(e, dersId){
   if(e?.stopPropagation) e.stopPropagation();
   const ders = MANIFEST.dersler.find(d=>d.id===dersId);
   if(!ders) return;
-  currentDrawerDers = ders;
   window.currentDrawerDers = ders;
   document.getElementById('drawerTitle').textContent = `${ders.ikon} ${ders.ad} Fasikülleri`;
   document.getElementById('drawerSearch').value='';
@@ -658,9 +657,9 @@ function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
 }
 function filterFasikuller(q){
-  if(!currentDrawerDers) return;
-  const filtered = visibleFasikullerFor(currentDrawerDers).filter(f=>f.ad.toLowerCase().includes(q.toLowerCase()));
-  renderFasikulCards(filtered, currentDrawerDers);
+  if(!window.currentDrawerDers) return;
+  const filtered = visibleFasikullerFor(window.currentDrawerDers).filter(f=>f.ad.toLowerCase().includes(q.toLowerCase()));
+  renderFasikulCards(filtered, window.currentDrawerDers);
 }
 function renderFasikulCards(fasikuller, ders){
   const body = document.getElementById('drawerBody');
@@ -1013,7 +1012,7 @@ async function resetFasikulData(dersId, fasId){
   persistData();
   persistManifest();
   renderDerslerGrid();
-  if (currentDrawerDers) renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+  if (window.currentDrawerDers) renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
   showToast(`Fasikül sıfırlandı — ${removedCount} hatalı silindi 🗑️`, 'success');
 }
 
@@ -1623,8 +1622,8 @@ function applyDemoMode(on){
   applyDemoStats(on);
   renderDerslerGrid();
   // Açık olan fasikül çekmecesini de güncelle
-  if(currentDrawerDers){
-    renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+  if(window.currentDrawerDers){
+    renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
   }
 }
 function toggleDemoData(btn){
@@ -1726,8 +1725,8 @@ async function openFasikulModal(fasikulId){
   await populateFasikulSourceSelect(fasikulId);
   silBtn.style.display = 'none';
   document.getElementById('fasikulModalTitle').textContent = '📚 Fasikül Ekle';
-  if(fasikulId && currentDrawerDers){
-    const fas = currentDrawerDers.fasikuller.find(f=>f.id===fasikulId);
+  if(fasikulId && window.currentDrawerDers){
+    const fas = window.currentDrawerDers.fasikuller.find(f=>f.id===fasikulId);
     if(fas){
       document.getElementById('fasikulEditId').value = fasikulId;
       document.getElementById('fasikulAdInput').value = fas.ad;
@@ -1810,7 +1809,7 @@ function closeFasikulModal(){
   document.getElementById('fasikulModal').classList.remove('open');
 }
 function saveFasikul(){
-  if(!currentDrawerDers){ showToast('Önce bir ders seç','error'); return; }
+  if(!window.currentDrawerDers){ showToast('Önce bir ders seç','error'); return; }
   const editId = document.getElementById('fasikulEditId').value;
   const ad = document.getElementById('fasikulAdInput').value.trim();
   const sinif = parseInt(document.getElementById('fasikulSinifInput').value)||10;
@@ -1822,16 +1821,16 @@ function saveFasikul(){
   if(!editId && !source){ showToast('Fasikül eklemek için GitHub JSON kaynağı seçin','error'); return; }
   if(!ad){ showToast('Fasikül adı gerekli','error'); return; }
   const thumbBgMap = {'var(--mat)':'linear-gradient(135deg,#312e81,#1e1b4b)','var(--fiz)':'linear-gradient(135deg,#164e63,#0c4a6e)','var(--kim)':'linear-gradient(135deg,#064e3b,#052e16)','var(--bio)':'linear-gradient(135deg,#431407,#450a0a)','var(--tar)':'linear-gradient(135deg,#500724,#2d1657)','var(--edb)':'linear-gradient(135deg,#2e1065,#1a0533)'};
-  const thumbBg = thumbBgMap[currentDrawerDers.renk] || 'linear-gradient(135deg,#312e81,#1e1b4b)';
+  const thumbBg = thumbBgMap[window.currentDrawerDers.renk] || 'linear-gradient(135deg,#312e81,#1e1b4b)';
   if(editId){
-    const fas = currentDrawerDers.fasikuller.find(f=>f.id===editId);
+    const fas = window.currentDrawerDers.fasikuller.find(f=>f.id===editId);
     if(fas){
       fas.ad=ad; fas.sinif=sinif; fas.soruSayisi=soruSayisi; fas.thumb=thumb; fas.thumbBg=thumbBg; fas.konuSayisi=fas.konular?.length||0;
       if(source){ fas.jsonFile=source.json;fas.pdfFile=source.pdf;fas.sourceType='bundled'; }
     }
     showToast(`${ad} güncellendi ✓`,'success');
   } else {
-    const existing = source ? currentDrawerDers.fasikuller.find(f=>f.id===source.id) : null;
+    const existing = source ? window.currentDrawerDers.fasikuller.find(f=>f.id===source.id) : null;
     if(existing){
       const konular = sourceRaw?.konular ? normalizeFasikulKonular(sourceRaw.konular) : (existing.konular||[]);
       existing.ad=ad;
@@ -1844,40 +1843,40 @@ function saveFasikul(){
       existing.jsonFile=source.json;
       existing.pdfFile=source.pdf;
       existing.sourceType='bundled';
-      persistKonular(currentDrawerDers.id,existing.id,konular).catch(()=>{});
+      persistKonular(window.currentDrawerDers.id,existing.id,konular).catch(()=>{});
       showToast(`${ad} zaten vardı, bilgiler yenilendi ✓`,'success');
       persistManifest();
-      renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+      renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
       renderDerslerGrid();
       closeFasikulModal();
       return;
     }
     const newId = source?.id || ad.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') + '-' + Date.now();
     const konular = sourceRaw?.konular ? normalizeFasikulKonular(sourceRaw.konular) : [];
-    currentDrawerDers.fasikuller.push({
+    window.currentDrawerDers.fasikuller.push({
       id:newId,ad,thumb,thumbBg,sinif,konuSayisi:konular.length,soruSayisi,progPct:0,sonCalisma:'Yeni eklendi',konular,
       jsonFile:source?.json||null,pdfFile:source?.pdf||null,sourceType:source?'bundled':null
     });
-    if(source) persistKonular(currentDrawerDers.id,newId,konular).catch(()=>{});
+    if(source) persistKonular(window.currentDrawerDers.id,newId,konular).catch(()=>{});
     showToast(`${ad} eklendi ✓`,'success');
   }
   persistManifest();
-  renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+  renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
   renderDerslerGrid();
   closeFasikulModal();
 }
 function silFasikul(){
-  if(!currentDrawerDers) return;
+  if(!window.currentDrawerDers) return;
   const editId = document.getElementById('fasikulEditId').value;
   if(!editId) return;
-  const fas = currentDrawerDers.fasikuller.find(f=>f.id===editId);
+  const fas = window.currentDrawerDers.fasikuller.find(f=>f.id===editId);
   if(!fas) return;
   if(!confirm(`"${fas.ad}" fasiküle silmek istiyor musunuz?`)) return;
-  currentDrawerDers.fasikuller = currentDrawerDers.fasikuller.filter(f=>f.id!==editId);
+  window.currentDrawerDers.fasikuller = window.currentDrawerDers.fasikuller.filter(f=>f.id!==editId);
   // Konuları da sil
-  try{ localStorage.removeItem(`edu_konular_${currentDrawerDers.id}_${editId}`); }catch(e){}
+  try{ localStorage.removeItem(`edu_konular_${window.currentDrawerDers.id}_${editId}`); }catch(e){}
   persistManifest();
-  renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+  renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
   renderDerslerGrid();
   closeFasikulModal();
   showToast('Fasikül silindi 🗑️','success');

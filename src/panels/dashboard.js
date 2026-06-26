@@ -1,7 +1,7 @@
 import { appState } from '../state/appState.js';
 import { _getUserKey, scheduleCloudPersist } from '../firebase/firestore.js';
 
-let currentDrawerDers = null;
+// Aktif ders tek kaynakta: window.currentDrawerDers (split-brain önler)
 let allFasikulCards = [];
 const FASIKUL_THEME_COLORS = ['#7c73ff','#ec6471','#f59e0b','#22c55e','#14b8a6','#38bdf8','#d946ef'];
 let draggedFasikulId = null;
@@ -103,7 +103,6 @@ function openDrawer(e, dersId){
   if(e?.stopPropagation) e.stopPropagation();
   const ders = window.MANIFEST.dersler.find(d=>d.id===dersId);
   if(!ders) return;
-  currentDrawerDers = ders;
   window.currentDrawerDers = ders;
   document.getElementById('drawerTitle').textContent = `${ders.ikon} ${ders.ad} Fasikülleri`;
   document.getElementById('drawerSearch').value='';
@@ -116,9 +115,9 @@ function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
 }
 function filterFasikuller(q){
-  if(!currentDrawerDers) return;
-  const filtered = visibleFasikullerFor(currentDrawerDers).filter(f=>f.ad.toLowerCase().includes(q.toLowerCase()));
-  renderFasikulCards(filtered, currentDrawerDers);
+  if(!window.currentDrawerDers) return;
+  const filtered = visibleFasikullerFor(window.currentDrawerDers).filter(f=>f.ad.toLowerCase().includes(q.toLowerCase()));
+  renderFasikulCards(filtered, window.currentDrawerDers);
 }
 function renderFasikulCards(fasikuller, ders){
   const body = document.getElementById('drawerBody');
@@ -476,7 +475,7 @@ async function resetFasikulData(dersId, fasId){
   persistData();
   persistManifest();
   renderDerslerGrid();
-  if (currentDrawerDers) renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+  if (window.currentDrawerDers) renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
   showToast(`Fasikül sıfırlandı — ${removedCount} hatalı silindi 🗑️`, 'success');
 }
 
@@ -544,8 +543,8 @@ function applyDemoMode(on){
   applyDemoStats(on);
   renderDerslerGrid();
   // Açık olan fasikül çekmecesini de güncelle
-  if(currentDrawerDers){
-    renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+  if(window.currentDrawerDers){
+    renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
   }
 }
 function toggleDemoData(btn){
@@ -645,11 +644,11 @@ async function openFasikulModal(fasikulId){
   document.getElementById('fasikulModalTitle').textContent = '📚 Fasikül Ekle';
   // Düzenleme: drawer açık olmasa da fasikülün sahibi dersi çöz.
   // main.js drawer açınca window.currentDrawerDers'i set ediyor (split-brain köprüsü).
-  let ders = window.currentDrawerDers || currentDrawerDers;
+  let ders = window.currentDrawerDers;
   if(fasikulId && (!ders || !ders.fasikuller?.some(f=>f.id===fasikulId))){
     ders = window.MANIFEST?.dersler?.find(d=>d.fasikuller?.some(f=>f.id===fasikulId)) || ders;
   }
-  if(ders) currentDrawerDers = ders;
+  if(ders) window.currentDrawerDers = ders;
   if(fasikulId && ders){
     const fas = ders.fasikuller.find(f=>f.id===fasikulId);
     if(fas){
@@ -745,11 +744,11 @@ function saveFasikul(){
   // Hedef dersi çöz: aktif drawer dersi yoksa seçilen kaynağın dersId'sinden
   // (drawer açılmadan "+ Fasikül Ekle" ile gelindiğinde de çalışsın), düzenlemede
   // ise fasikülü içeren dersten bul.
-  let ders = window.currentDrawerDers || currentDrawerDers;
+  let ders = window.currentDrawerDers;
   if(!ders && source) ders = window.MANIFEST?.dersler?.find(d=>d.id===source.dersId) || null;
   if(!ders && editId) ders = window.MANIFEST?.dersler?.find(d=>d.fasikuller?.some(f=>f.id===editId)) || null;
   if(!ders){ showToast('Önce bir ders seç','error'); return; }
-  if(!currentDrawerDers) currentDrawerDers = ders; // sonraki render'lar doğru dersi hedeflesin
+  if(!window.currentDrawerDers) window.currentDrawerDers = ders; // sonraki render'lar doğru dersi hedeflesin
   if(!editId && !source){ showToast('Fasikül eklemek için GitHub JSON kaynağı seçin','error'); return; }
   if(!ad){ showToast('Fasikül adı gerekli','error'); return; }
   const thumbBgMap = {'var(--mat)':'linear-gradient(135deg,#312e81,#1e1b4b)','var(--fiz)':'linear-gradient(135deg,#164e63,#0c4a6e)','var(--kim)':'linear-gradient(135deg,#064e3b,#052e16)','var(--bio)':'linear-gradient(135deg,#431407,#450a0a)','var(--tar)':'linear-gradient(135deg,#500724,#2d1657)','var(--edb)':'linear-gradient(135deg,#2e1065,#1a0533)'};
@@ -798,17 +797,17 @@ function saveFasikul(){
   closeFasikulModal();
 }
 function silFasikul(){
-  if(!currentDrawerDers) return;
+  if(!window.currentDrawerDers) return;
   const editId = document.getElementById('fasikulEditId').value;
   if(!editId) return;
-  const fas = currentDrawerDers.fasikuller.find(f=>f.id===editId);
+  const fas = window.currentDrawerDers.fasikuller.find(f=>f.id===editId);
   if(!fas) return;
   if(!confirm(`"${fas.ad}" fasiküle silmek istiyor musunuz?`)) return;
-  currentDrawerDers.fasikuller = currentDrawerDers.fasikuller.filter(f=>f.id!==editId);
+  window.currentDrawerDers.fasikuller = window.currentDrawerDers.fasikuller.filter(f=>f.id!==editId);
   // Konuları da sil
-  try{ localStorage.removeItem(`edu_konular_${currentDrawerDers.id}_${editId}`); }catch(e){}
+  try{ localStorage.removeItem(`edu_konular_${window.currentDrawerDers.id}_${editId}`); }catch(e){}
   persistManifest();
-  renderFasikulCards(currentDrawerDers.fasikuller, currentDrawerDers);
+  renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
   renderDerslerGrid();
   closeFasikulModal();
   showToast('Fasikül silindi 🗑️','success');

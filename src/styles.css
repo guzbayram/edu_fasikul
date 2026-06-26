@@ -2489,9 +2489,9 @@ a{color:inherit;text-decoration:none}
 /* Konu Listesi butonu (soru paneli başlığında) */
 .rp-reset-btn{
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  width:28px;height:28px;border-radius:8px;
-  background:var(--bg-3);border:1px solid var(--border);color:var(--text-muted);
-  font-size:15px;line-height:1;cursor:pointer;transition:all .15s;
+  width:36px;height:36px;border-radius:9px;
+  background:var(--bg-3);border:1.5px solid var(--border);color:var(--text-1);
+  font-size:19px;line-height:1;cursor:pointer;transition:all .15s;
 }
 .rp-reset-btn:hover{background:var(--bg-4);color:var(--text-0)}
 .rp-konu-list-btn{
@@ -2944,14 +2944,14 @@ a{color:inherit;text-decoration:none}
   .tek-soru-card{
     background:transparent!important;border:none!important;box-shadow:none!important;
     padding:0!important;margin:0!important;width:100%!important;max-width:none!important;
-    border-radius:0!important;display:flex!important;flex-direction:column!important;
-    align-items:center!important;justify-content:center!important;gap:3px!important;
+    border-radius:0!important;display:flex!important;flex-direction:row!important;
+    align-items:center!important;justify-content:center!important;gap:10px!important;
   }
-  /* Soru no görünür (hangi soruyu cevaplıyorsun) */
-  .tsk-header{display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;margin:0!important;min-height:0!important;border:none!important;background:none!important}
-  .tsk-no{display:inline-block!important;font-size:11px!important;font-weight:700!important;color:var(--text-1)!important;line-height:1!important}
+  /* Soru no SOLDA, bold ve büyük */
+  .tsk-header{display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;margin:0!important;min-height:0!important;border:none!important;background:none!important;flex-shrink:0!important}
+  .tsk-no{display:inline-block!important;font-size:16px!important;font-weight:800!important;color:var(--text-0)!important;line-height:1!important;white-space:nowrap!important}
   .tsk-badge,.tsk-star,.tsk-page,.tsk-copy{display:none!important}
-  .tsk-body{padding:0!important;width:100%!important}
+  .tsk-body{padding:0!important;width:auto!important}
   .tsk-cevap-row{
     display:flex!important;flex-wrap:nowrap!important;
     gap:12px!important;justify-content:center!important;margin:0!important;
@@ -3151,13 +3151,13 @@ a{color:inherit;text-decoration:none}
   .tek-soru-card{
     background:transparent!important;border:none!important;box-shadow:none!important;
     padding:0!important;margin:0!important;width:100%!important;max-width:none!important;
-    border-radius:0!important;display:flex!important;flex-direction:column!important;
-    align-items:center!important;justify-content:center!important;gap:3px!important;
+    border-radius:0!important;display:flex!important;flex-direction:row!important;
+    align-items:center!important;justify-content:center!important;gap:10px!important;
   }
-  /* Soru no görünür (hangi soruyu cevaplıyorsun) — diğer header öğeleri gizli */
-  .tsk-header{display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;margin:0!important;min-height:0!important;border:none!important;background:none!important}
-  .tsk-no{display:inline-block!important;font-size:11px!important;font-weight:700!important;color:var(--text-1)!important;line-height:1!important}
-  .tsk-body{padding:0!important;width:100%!important}
+  /* Soru no SOLDA, bold ve büyük — diğer header öğeleri gizli */
+  .tsk-header{display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;margin:0!important;min-height:0!important;border:none!important;background:none!important;flex-shrink:0!important}
+  .tsk-no{display:inline-block!important;font-size:15px!important;font-weight:800!important;color:var(--text-0)!important;line-height:1!important;white-space:nowrap!important}
+  .tsk-body{padding:0!important;width:auto!important}
   .tsk-feedback{display:none!important}
   .tsk-actions{display:none!important}
   .tsk-nav-dots{display:none!important}
@@ -3187,13 +3187,16 @@ a{color:inherit;text-decoration:none}
   /* Önceki/sonraki ok satırı yok (Çık sayaç satırında) */
   .tp-nav{display:none!important}
 
-  /* ── SATIR 6: Çizim araçları (kalem/silgi/renkler/canlı/kopyala) ── */
+  /* ── Çizim araçları: SARMALANAN grid (yatay-scroll yok → kolay dokunma) ── */
   .rp-tools-bar{
-    width:100%!important;flex-shrink:0!important;height:var(--rl-row)!important;
-    display:flex!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:center!important;
-    gap:6px!important;padding:0 8px!important;border-bottom:1px solid var(--border)!important;
-    overflow-x:auto!important;overflow-y:hidden!important;
+    width:100%!important;flex-shrink:0!important;height:auto!important;
+    display:flex!important;flex-wrap:wrap!important;align-items:center!important;justify-content:center!important;
+    gap:8px!important;padding:8px!important;border-bottom:1px solid var(--border)!important;overflow:visible!important;
   }
+  .rp-tools-bar .tool-btn{width:38px!important;height:38px!important;font-size:18px!important;flex-shrink:0!important}
+  .rp-tools-bar .color-dot{width:26px!important;height:26px!important;flex-shrink:0!important}
+  .rp-tools-bar .tool-btn:hover{transform:none!important}  /* dokunmada kayma olmasın */
+  .rp-tools-bar .eraser-size-group,.rp-tools-bar .rp-tools-sep{display:none!important}
 
   /* ── ZOOM BAR: sayfa-bar'ın hemen üstünde (panel altı) ── */
   .rp-zoom-bar{

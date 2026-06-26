@@ -110,13 +110,7 @@ export function enterApp(name){
     setTimeout(()=>{ window.loadFromFirestore?.(); }, 500);
   }
 
-  if(window._showOnboardOnLogin){
-    window._showOnboardOnLogin = false;
-    setTimeout(()=>{
-      window.showToast?.('İlk girişin! Sana kısa bir tur yapayım 👋','info');
-      setTimeout(()=>window.startOnboarding?.(), 2500);
-    }, 800);
-  }
+  // Onboarding turu kaldırıldı — girişte tur tetiklenmez
 }
 
 export async function doLogout(){

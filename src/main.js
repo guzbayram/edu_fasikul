@@ -271,10 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateDashboard();
   renderDerslerGrid();
 
-  // v4: Onboarding flag for first-time users
-  if(!localStorage.getItem('edu_onboarded')){
-    window._showOnboardOnLogin = true;
-  }
+  // Onboarding turu kaldırıldı (otomatik tetik yok)
 
   // PDF.js worker
   if(typeof pdfjsLib !== 'undefined'){

@@ -114,11 +114,43 @@ function initSolvePaletteDrag(){
 
 // Görünüm Modu menüsü: telefonda 1sn sabit basışla açılır (initLongPressDraw içinde).
 // Burada yalnız masaüstü çift-tık desteklenir (yazarken kazara açılmasın diye dokunmada yok).
+// Karta çift dokun → kartı alana DOLDUR (cover); tekrar çift dokun → eski hâle
+function toggleCardFill(){
+  const wrap = document.getElementById('readerCanvasWrap');
+  const pw = wrap?.querySelector('[id^="page-wrap-"]');
+  if(!wrap || !pw) return;
+  const cs = getComputedStyle(wrap);
+  const availW = wrap.clientWidth  - parseFloat(cs.paddingLeft||0) - parseFloat(cs.paddingRight||0);
+  const availH = wrap.clientHeight - parseFloat(cs.paddingTop||0)  - parseFloat(cs.paddingBottom||0);
+  const r = pw.getBoundingClientRect();
+  if(!appState._fillBaseZoom){
+    const factor = Math.max(availW / r.width, availH / r.height); // alanı kapla (taşan eksen kayar)
+    if(factor > 1.02){
+      appState._fillBaseZoom = appState.zoom;
+      appState.zoom = Math.max(40, Math.min(200, Math.round(appState.zoom * factor)));
+    }
+  } else {
+    appState.zoom = appState._fillBaseZoom; appState._fillBaseZoom = null;
+  }
+  const zl = document.getElementById('zoomLabel'); if(zl) zl.textContent = `%${appState.zoom}`;
+  window.renderPages?.();
+}
+window.toggleCardFill = toggleCardFill;
+
 function initSolveDoubleTap(){
   const wrap = document.getElementById('readerCanvasWrap');
   if(!wrap || wrap.dataset.solveDtReady) return;
   wrap.dataset.solveDtReady = '1';
-  wrap.addEventListener('dblclick', e=>{ window.showContextMenu?.(e.clientX, e.clientY); });
+  // Masaüstü çift tık + dokunmatik çift dokunma → kartı alana doldur
+  wrap.addEventListener('dblclick', ()=> toggleCardFill());
+  let lastTap = 0, lx = 0, ly = 0;
+  wrap.addEventListener('touchend', e=>{
+    if(e.changedTouches.length !== 1) return;
+    const t = e.changedTouches[0], now = Date.now();
+    if(now - lastTap < 300 && Math.hypot(t.clientX - lx, t.clientY - ly) < 30){
+      lastTap = 0; toggleCardFill();
+    } else { lastTap = now; lx = t.clientX; ly = t.clientY; }
+  }, { passive:true });
 }
 
 window.enterSolveMode = enterSolveMode;

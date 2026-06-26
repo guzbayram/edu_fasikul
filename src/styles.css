@@ -3032,32 +3032,44 @@ a{color:inherit;text-decoration:none}
    ═══════════════════════════════════════════════════════════════════ */
 @media (orientation:landscape) and (max-height:500px){
 
-  /* Panel: sabit sol, scroll yok, flex column */
+  /* Kanvasın üst/alt/sağında bar YOK: üst toolbar + alt sayfa-bar gizli */
+  .reader-toolbar{display:none!important}
+  .reader-bottom-bar{display:none!important}
+
+  /* PANEL: SOL kenarda dikey sütun, genişlik ekranın ≤ %30'u */
   .reader-right{
-    overflow:hidden!important;overflow-y:hidden!important;
+    position:fixed!important;top:0!important;left:0!important;bottom:0!important;right:auto!important;
+    width:min(30vw,300px)!important;max-width:30vw!important;height:100vh!important;
     display:flex!important;flex-direction:column!important;
-    padding:0!important;gap:0!important;
+    overflow:hidden!important;
+    border:none!important;border-right:1.5px solid var(--border-strong)!important;
+    background:var(--bg-1)!important;z-index:350!important;padding:0!important;gap:0!important;
   }
-  /* Konu navigator (masaüstü) gizle — modal kullanılıyor */
   .rp-konu-section{display:none!important}
-  /* Soru bölümü: flex column, scroll yok */
+  /* Soru bölümü: dikey, taşarsa panel içinde kayar */
   .rp-soru-section{
     display:flex!important;flex-direction:column!important;
-    flex:1!important;overflow:hidden!important;min-height:0!important;
+    flex:1!important;min-height:0!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;
   }
+  /* Eşit yükseklik satır birimi (cevap satırı 1.4×) */
+  #reader-overlay{--rl-row:clamp(34px,13.5vh,50px)}
 
-  /* ── SATIR 1: Konu adı + ≡ Konu Listesi ── */
+  /* CANVAS: panelin sağında, etrafında 8px boşluk, üst/alt bar yok */
+  .reader-center{padding:0!important}
+  .reader-canvas-wrap{padding:8px 8px 8px calc(min(30vw,300px) + 8px)!important}
+
+  /* ── SATIR 1: Konu adı (sol) + ≡ (sağ) ── */
   .rp-header{
-    flex-shrink:0!important;
-    height:auto!important;min-height:0!important;max-height:52px!important;
+    width:100%!important;flex-shrink:0!important;
+    height:var(--rl-row)!important;min-height:var(--rl-row)!important;
     overflow:hidden!important;
     padding:0!important;border-bottom:1px solid var(--border)!important;
-    display:flex!important;flex-direction:column!important;justify-content:center!important;
+    display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:stretch!important;
   }
   .rp-header-top{
-    display:flex!important;align-items:center!important;
+    display:flex!important;align-items:center!important;justify-content:space-between!important;
     padding:0 10px!important;gap:6px!important;
-    height:auto!important;min-height:36px!important;margin:0!important;overflow:hidden!important;
+    height:var(--rl-row)!important;margin:0!important;overflow:hidden!important;
   }
   .rp-title{
     font-size:11px!important;font-weight:600!important;
@@ -3071,35 +3083,50 @@ a{color:inherit;text-decoration:none}
   .kl-label{display:none!important}   /* sadece bars ikonu */
   .rp-stats-row{display:none!important}
 
-  /* ── SATIR 2: Timer + Bitir ── */
+  /* ── SATIR 2: Sayaç | Bitir | Çık (grid) ── */
   .auto-timer-bar{
-    height:36px!important;flex-shrink:0!important;
-    display:flex!important;align-items:center!important;
-    padding:0 10px!important;gap:8px!important;
+    width:100%!important;height:var(--rl-row)!important;flex-shrink:0!important;
+    display:grid!important;grid-template-columns:1fr auto 1fr;align-items:center!important;
+    padding:0 10px!important;gap:6px!important;
     border-bottom:1px solid var(--border)!important;overflow:hidden!important;
   }
   .auto-timer-bar .timer-display{
-    flex:0 0 auto!important;
+    justify-self:start!important;
     background:none!important;border:none!important;border-radius:0!important;
     padding:0!important;margin:0!important;height:auto!important;min-height:0!important;
-    font-size:15px!important;font-weight:800!important;letter-spacing:1px!important;
-    text-align:left!important;
+    font-size:14px!important;font-weight:800!important;letter-spacing:.5px!important;text-align:left!important;
   }
   .auto-timer-bar .tsk-action-btn{
+    justify-self:center!important;
     display:flex!important;align-items:center!important;justify-content:center!important;
-    margin-left:auto!important;height:26px!important;min-height:26px!important;
+    height:26px!important;min-height:26px!important;margin:0!important;
     padding:0 10px!important;font-size:11px!important;font-weight:600!important;
     border-radius:7px!important;white-space:nowrap!important;flex-shrink:0!important;
   }
-  .afk-indicator{font-size:9px!important;flex-shrink:0!important}
-  .altkonu-stats-bar{display:none!important}
-
-  /* ── SATIR 3: ABCDE daire butonları ── */
-  .soru-list{
-    flex-shrink:0!important;
-    position:static!important;height:auto!important;
+  .auto-timer-bar .atb-cikis{
+    justify-self:end!important;
     display:flex!important;align-items:center!important;justify-content:center!important;
-    padding:6px 10px!important;border-bottom:1px solid var(--border)!important;
+    height:26px!important;padding:0 9px!important;font-size:10px!important;font-weight:600!important;
+    border-radius:7px!important;white-space:nowrap!important;flex-shrink:0!important;
+    background:var(--bg-2)!important;border:1px solid var(--border)!important;color:var(--text-0)!important;cursor:pointer!important;
+  }
+  .afk-indicator{display:none!important}
+
+  /* ── SATIR 3: İstatistik çipleri (✅❌⬜ Net %) — ortalı ── */
+  .altkonu-stats-bar{
+    width:100%!important;flex-shrink:0!important;height:var(--rl-row)!important;
+    display:flex!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:center!important;
+    gap:5px!important;padding:0 8px!important;border-bottom:1px solid var(--border)!important;
+    font-size:10px!important;overflow-x:auto!important;overflow-y:hidden!important;
+  }
+
+  /* ── SATIR 4 (1.4×): ABCDE daire butonları ── */
+  .soru-list{
+    width:100%!important;flex-shrink:0!important;
+    height:calc(var(--rl-row) * 1.4)!important;min-height:calc(var(--rl-row) * 1.4)!important;
+    position:static!important;
+    display:flex!important;align-items:center!important;justify-content:center!important;
+    padding:0 10px!important;border-bottom:1px solid var(--border)!important;
     background:transparent!important;border-right:none!important;
     border-left:none!important;border-top:none!important;overflow:hidden!important;
   }
@@ -3126,39 +3153,25 @@ a{color:inherit;text-decoration:none}
     padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important;
   }
 
-  /* ── SATIR 4: ☰ + ← + → + ← Çık ── */
+  /* ── SATIR 5: İlerleme çubuğu + (sağda soru·süre·net) ── */
   .test-progress-bar{
-    flex-shrink:0!important;height:36px!important;flex:none!important;
-    display:flex!important;align-items:center!important;
-    padding:0 10px!important;border:none!important;overflow:hidden!important;
+    width:100%!important;flex-shrink:0!important;height:var(--rl-row)!important;flex:none!important;
+    display:flex!important;flex-direction:column!important;justify-content:center!important;
+    gap:4px!important;padding:0 10px!important;border-bottom:1px solid var(--border)!important;overflow:hidden!important;
   }
-  .tp-label{display:none!important}
-  .tp-track{display:none!important}
+  .tp-label{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:6px!important;font-size:9px!important;color:var(--text-muted)!important}
+  .tp-track{display:block!important;height:5px!important}
   .test-control{display:none!important}
   .finish-test-btn{display:none!important}
-  .tp-nav{
-    display:flex!important;width:100%!important;gap:6px!important;
-    align-items:center!important;margin:0!important;grid-template-columns:none!important;
-  }
-  /* ☰ Konu — portrait-only butonu yatayda da göster */
-  .tp-portrait-konu{
-    display:flex!important;align-items:center!important;justify-content:center!important;
-    flex:0 0 32px!important;width:32px!important;height:26px!important;min-height:26px!important;
-    border-radius:7px!important;font-size:15px!important;
-    background:var(--bg-2)!important;border:1px solid var(--border)!important;cursor:pointer!important;
-  }
-  .tp-portrait-bitir{display:none!important}
-  .tp-nav .tp-nav-btn{
-    flex:0 0 32px!important;width:32px!important;height:26px!important;min-height:26px!important;
-    border-radius:7px!important;background:var(--bg-2)!important;
-    border:1px solid var(--border)!important;font-size:14px!important;cursor:pointer!important;
-  }
-  .tp-nav .rp-back-fasikul-btn{
-    flex:1!important;font-size:10px!important;font-weight:600!important;
-    padding:0 8px!important;height:26px!important;
-    display:flex!important;align-items:center!important;justify-content:center!important;
-    white-space:nowrap!important;border-radius:7px!important;
-    background:var(--bg-2)!important;border:1px solid var(--border)!important;
+  /* Önceki/sonraki ok satırı yok (Çık sayaç satırında) */
+  .tp-nav{display:none!important}
+
+  /* ── SATIR 6: Çizim araçları (kalem/silgi/renkler/canlı/kopyala) ── */
+  .rp-tools-bar{
+    width:100%!important;flex-shrink:0!important;height:var(--rl-row)!important;
+    display:flex!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:center!important;
+    gap:6px!important;padding:0 8px!important;border-bottom:1px solid var(--border)!important;
+    overflow-x:auto!important;overflow-y:hidden!important;
   }
 
   /* ── ZOOM BAR: panel altına yapıştır ── */
@@ -3172,16 +3185,11 @@ a{color:inherit;text-decoration:none}
     justify-content:center!important;align-items:center!important;gap:10px!important;
     background:var(--bg-1)!important;
   }
-  /* Alt bar zoom — zaten panel'de var, bottom-bar zoom'ı gizle */
-  .reader-bottom-bar .zoom-group{display:none!important}
-  .reader-bottom-bar{left:0!important}
-
-  /* Konu modal: tam ekran, toolbar altından */
+  /* Konu modal: tam ekran (toolbar gizli → top:0) */
   #reader-overlay.konu-modal-open .reader-right{display:none!important}
   #reader-overlay.konu-modal-open .konu-modal{
-    top:56px!important;
-    max-height:calc(100vh - 56px)!important;
-    min-height:calc(100vh - 56px)!important;
+    top:0!important;max-height:100vh!important;min-height:100vh!important;
     border-radius:0!important;width:100vw!important;
   }
+  #reader-overlay.konu-modal-open .konu-modal-backdrop{top:0!important}
 }

@@ -3224,10 +3224,14 @@ body.reader-locked{position:fixed;left:0;right:0;width:100%;overflow:hidden}
   .rp-zoom-bar{
     display:flex!important;position:static!important;flex-shrink:0!important;
     width:100%!important;height:auto!important;
+    margin-top:auto!important;  /* panelde boşluk kalsa bile EN ALTA in (Pro'da ortada kalıyordu) */
     border-top:1px solid var(--border)!important;border-right:none!important;border-radius:0!important;
     padding:7px 8px!important;justify-content:center!important;align-items:center!important;gap:8px!important;
     background:var(--bg-1)!important;
   }
+  /* Soru bölümü içeriğe göre küçülsün ki araç/cevap satırları kırpılmasın,
+     artan boşluk zoom barının üstüne (margin-top:auto) gitsin — Pro'da düzelir. */
+  .rp-soru-section{flex:0 1 auto!important}
   .rp-zoom-bar .rp-page-nav{display:flex!important;align-items:center!important;justify-content:center!important}
   /* Konu modal: tam ekran (toolbar gizli → top:0) */
   #reader-overlay.konu-modal-open .reader-right{display:none!important}

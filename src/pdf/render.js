@@ -944,6 +944,40 @@ function initLongPressDraw(){
   wrap.addEventListener('touchcancel', onEnd, { passive:false, capture:true });
 }
 
+// iPhone 14 Pro MAX (visualViewport.offsetTop≠0): position:fixed panelde iOS native
+// hit-test'i offset kadar şaşırıyor (undo→kalem, redo→silgi). RENDER parmakla hizalı
+// olduğundan, görsel konumdaki gerçek butonu elementFromPoint ile bulup tetikleriz.
+// Ofset 0 ise (iPhone Pro, masaüstü, standalone) hiç devreye girmez → native davranış.
+function initPanelTapFix(){
+  const panel = document.getElementById('readerRight');
+  if(!panel || panel.dataset.tapFix) return;
+  panel.dataset.tapFix = '1';
+  let sx = 0, sy = 0, moved = false;
+  panel.addEventListener('touchstart', e => {
+    const t = e.touches && e.touches[0]; if(!t) return;
+    sx = t.clientX; sy = t.clientY; moved = false;
+  }, { passive:true, capture:true });
+  panel.addEventListener('touchmove', e => {
+    const t = e.touches && e.touches[0]; if(!t) return;
+    if(Math.hypot(t.clientX - sx, t.clientY - sy) > 10) moved = true;
+  }, { passive:true, capture:true });
+  panel.addEventListener('touchend', e => {
+    const vv = window.visualViewport;
+    const vox = vv ? vv.offsetLeft : 0, voy = vv ? vv.offsetTop : 0;
+    if((!vox && !voy) || moved) return;           // ofset yok ya da kaydırma → native
+    const t = e.changedTouches && e.changedTouches[0]; if(!t) return;
+    // Çizim düzeltmesiyle aynı işaret: gerçek görsel hedef (clientX-vox, clientY-voy)
+    const el = document.elementFromPoint(t.clientX - vox, t.clientY - voy);
+    const target = el && el.closest && el.closest('button,.color-dot,[onclick]');
+    const native = e.target && e.target.closest && e.target.closest('button,.color-dot,[onclick]');
+    if(target && panel.contains(target) && target !== native){
+      e.preventDefault(); e.stopPropagation();
+      target.click();
+    }
+  }, { passive:false, capture:true });
+}
+window.initPanelTapFix = initPanelTapFix;
+
 
 // ── Bu modülün fonksiyonlarını window'a kaydet ──
 // main.js ve diğer modüller window.xxx ile çağırabilsin

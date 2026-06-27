@@ -414,6 +414,7 @@ function initPDFContextMenu(){
     menu.style.cssText = `
       position:fixed;z-index:9999;background:var(--bg-2);border:1px solid var(--border-strong);
       border-radius:var(--radius);box-shadow:var(--shadow-xl);padding:6px;min-width:200px;
+      max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
       display:none;font-family:var(--font-ui);
     `;
     menu.innerHTML = `
@@ -457,11 +458,16 @@ function showContextMenu(x, y){
   if(!menu) return;
   document.getElementById('ctxSingle')?.classList.toggle('ctx-active', appState.viewMode === 'single');
   document.getElementById('ctxScroll')?.classList.toggle('ctx-active', appState.viewMode === 'scroll');
-  const mx = Math.min(x, window.innerWidth - 220);
-  const my = Math.min(y, window.innerHeight - 180);
+  // Önce göster ki gerçek boyut ölçülebilsin (max-height:85vh + scroll ile sınırlı)
+  menu.style.visibility = 'hidden';
+  menu.style.display = 'block';
+  const mw = menu.offsetWidth || 200;
+  const mh = menu.offsetHeight || 180;
+  const mx = Math.max(6, Math.min(x, window.innerWidth - mw - 6));
+  const my = Math.max(6, Math.min(y, window.innerHeight - mh - 6));
   menu.style.left = mx + 'px';
   menu.style.top = my + 'px';
-  menu.style.display = 'block';
+  menu.style.visibility = '';
 }
 
 function openViewModeMenu(e){

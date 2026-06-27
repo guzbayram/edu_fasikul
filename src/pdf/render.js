@@ -257,9 +257,18 @@ function getReaderFitScale(page, wrap){
   const rawW = container?.clientWidth || 0;
   const viewportW = Math.max(280, (rawW > 0 ? rawW : window.innerWidth) - padX - 2);
   const natural = page.getViewport({scale: 1});
-  // Genişliğe sığdır (fill-width): kart sağ kenara kadar dolar; zoom ile daha da büyür
-  // (çözüm modunda da contain değil → sağda boşluk kalmaz, taşarsa dikey kayar).
   const base = viewportW / natural.width;
+  // Tam ekran (solve) modu: kartı kalan alana CONTAIN sığdır → olabildiğince büyük ve
+  // tamamı görünür, ortalanır (genişlik VE yüksekliğin küçük olanına göre).
+  const ov = document.getElementById('reader-overlay');
+  if(ov?.classList.contains('solve-mode')){
+    const padY = styles ? parseFloat(styles.paddingTop || 0) + parseFloat(styles.paddingBottom || 0) : 0;
+    const rawH = container?.clientHeight || 0;
+    const viewportH = Math.max(280, (rawH > 0 ? rawH : window.innerHeight) - padY - 2);
+    const baseH = viewportH / natural.height;
+    return Math.max(0.35, Math.min(base, baseH) * zoomScale);
+  }
+  // Normal: genişliğe sığdır (fill-width)
   return Math.max(0.35, base * zoomScale);
 }
 

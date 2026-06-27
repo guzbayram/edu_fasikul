@@ -518,25 +518,56 @@ body.reader-locked{overflow:hidden!important}
 /* Şıkların başındaki soru no */
 .sp-no{display:inline-flex;align-items:center;font-weight:800;font-size:15px;color:var(--text-0);padding:0 8px 0 2px;white-space:nowrap}
 
-/* ARAÇ PENCERESİ (t-1) — iki satır, yatay; varsayılan ÜST-ORTA. Her iki yönelimde de
-   yatay kalsın (yatay-mod solve-palette kolon kuralını ez). */
+/* ── Köşe boyutlandırma tutamacı (solve pencereleri) ── */
+.sp-resize{display:none}
+#reader-overlay.solve-mode .sp-resize{
+  display:block;position:absolute;right:2px;bottom:2px;width:20px;height:20px;
+  cursor:nwse-resize;border-radius:0 0 14px 0;touch-action:none;z-index:2;
+  background:
+    linear-gradient(135deg,transparent 50%,var(--text-muted) 50%,var(--text-muted) 60%,transparent 60%,transparent 72%,var(--text-muted) 72%,var(--text-muted) 82%,transparent 82%);
+  opacity:.5;
+}
+.solve-palette{position:fixed;overflow:visible}
+
+/* ARAÇ PENCERESİ — butonlar flex-wrap ile şekle göre dizilir. Varsayılan SAĞ-ÜST.
+   width JS resize ile ayarlanır; içerik sarılır (geniş→satır, dar→ızgara). */
 .solve-tool-palette{
-  left:50%!important;right:auto!important;top:14px!important;bottom:auto!important;
-  transform:translateX(-50%)!important;width:auto!important;height:auto!important;max-width:96vw!important;
+  left:auto!important;right:14px!important;top:14px!important;bottom:auto!important;
+  transform:none!important;height:auto!important;max-width:none!important;
+  width:var(--sp-w,178px);
   border-radius:16px!important;flex-direction:column!important;overflow:visible!important;
   justify-content:flex-start!important;gap:6px!important;
 }
-.solve-tool-palette .sp-row{flex-direction:row!important;flex-wrap:nowrap!important;justify-content:center!important;gap:6px!important;width:auto!important}
-.solve-tool-palette .sp-colors{grid-template-columns:repeat(4,1fr)!important}
+.solve-tool-palette .sp-tools-wrap{
+  display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;
+  align-items:center!important;justify-content:center!important;gap:7px!important;width:100%!important;
+}
 .solve-tool-palette .sp-handle{padding:0 16px 4px!important;align-self:center!important}
 
-/* ŞIK PENCERESİ — her yönelimde ALT-ORTA, yatay satır (yatay-mod kolon kuralını ez) */
+/* ŞIK / KONTROL PENCERESİ — varsayılan ALT-ORTA; içerik şekle göre sarılır */
 #reader-overlay.solve-mode #solvePalette{
   left:50%!important;right:auto!important;top:auto!important;bottom:16px!important;
-  transform:translateX(-50%)!important;width:auto!important;height:auto!important;max-width:96vw!important;
+  transform:translateX(-50%)!important;height:auto!important;max-width:96vw!important;
+  width:var(--sp-w2,auto);
   flex-direction:column!important;border-radius:16px!important;overflow:visible!important;
 }
-#reader-overlay.solve-mode #solvePalette .sp-row{flex-direction:row!important;flex-wrap:wrap!important;justify-content:center!important}
+#reader-overlay.solve-mode #solvePalette .sp-row{flex-direction:row!important;flex-wrap:wrap!important;justify-content:center!important;width:100%!important}
+
+/* iPad / geniş yatay: şık penceresi SOL kenarda (2 sütun şıklar), araç penceresi SAĞ kenarda */
+@media (orientation:landscape) and (min-width:768px) and (min-height:600px){
+  #reader-overlay.solve-mode #solvePalette{
+    left:14px!important;right:auto!important;top:14px!important;bottom:auto!important;
+    transform:none!important;width:var(--sp-w2,122px);
+  }
+  /* Şıklar dar pencerede 2 sütun, geniş pencerede tek satır → flex-wrap sağlar */
+  #reader-overlay.solve-mode #solvePalette .sp-answers{max-width:100%!important;gap:6px!important}
+  #reader-overlay.solve-mode #solvePalette .sp-no{flex:1 0 100%!important;justify-content:center!important;padding:0 0 2px!important}
+}
+
+/* Kart: kalan alanın ORTASINDA, olabildiğince büyük (contain). Pencereler üstte yüzer. */
+#reader-overlay.solve-mode .reader-page-stage{justify-content:center!important;align-items:center!important}
+#reader-overlay.solve-mode .reader-page-stage > *,
+#reader-overlay.solve-mode [id^="page-wrap-"]{margin-left:auto!important;margin-right:auto!important}
 
 /* Dikey: palet EN ÜSTTE, tam genişlik — satırlar genişliğe eşit dağılır */
 @media (orientation:portrait){

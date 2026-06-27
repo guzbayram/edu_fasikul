@@ -10,21 +10,15 @@ import { appState } from '../state/appState.js';
 // altında gizlenmez/kesilmez (yatay: soldan, dikey: üstten).
 function fitCanvasToPalette(){
   const ov = document.getElementById('reader-overlay');
-  const pal = document.getElementById('solvePalette');
   const wrap = document.getElementById('readerCanvasWrap');
   if(!wrap) return;
-  if(!ov?.classList.contains('solve-mode') || !pal){
+  // Pencereler kartın ÜSTÜNDE yüzer (sürüklenebilir); kart tüm alanı kullanıp ORTALANIR.
+  if(!ov?.classList.contains('solve-mode')){
     ['padding-left','padding-top','padding-right','padding-bottom'].forEach(k=>wrap.style.removeProperty(k));
     return;
   }
-  const r = pal.getBoundingClientRect();
-  const portrait = window.matchMedia('(orientation:portrait)').matches;
-  const G = 16; // standart boşluk (palet + ekran kenarları)
-  const set = (k,v)=>wrap.style.setProperty(k, v, 'important'); // landscape CSS padding'i ez
-  set('padding-right',  G + 'px');
-  set('padding-bottom', G + 'px');
-  if(portrait){ set('padding-top', (r.height + G) + 'px'); set('padding-left', G + 'px'); }
-  else        { set('padding-left', (r.width + G) + 'px'); set('padding-top', G + 'px'); }
+  const G = 14;
+  ['padding-left','padding-right','padding-top','padding-bottom'].forEach(k=>wrap.style.setProperty(k, G+'px', 'important'));
 }
 function reflowSolve(){
   fitCanvasToPalette();
@@ -127,9 +121,26 @@ function makeDraggable(palId, handleId){
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
 }
+// Köşeden boyutlandır → pencere genişliği değişir, butonlar flex-wrap ile yeniden dizilir
+function makeResizable(palId){
+  const pal = document.getElementById(palId);
+  const grip = pal?.querySelector('.sp-resize');
+  if(!pal || !grip || grip.dataset.rzReady) return;
+  grip.dataset.rzReady = '1';
+  let sx=0, sw=0, rz=false;
+  const start = x => { rz=true; sx=x; sw=pal.getBoundingClientRect().width; };
+  const move  = x => { if(!rz) return; pal.style.width = Math.max(92, Math.min(window.innerWidth-20, sw + (x-sx))) + 'px'; };
+  const end   = () => { rz=false; };
+  grip.addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); grip.setPointerCapture?.(e.pointerId); start(e.clientX); });
+  grip.addEventListener('pointermove', e=>{ if(rz){ e.preventDefault(); move(e.clientX); } });
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+}
 function initSolvePaletteDrag(){
   makeDraggable('solvePalette', 'spHandle');
   makeDraggable('solveToolPalette', 'spToolHandle');
+  makeResizable('solvePalette');
+  makeResizable('solveToolPalette');
 }
 
 // Görünüm Modu menüsü: telefonda 1sn sabit basışla açılır (initLongPressDraw içinde).

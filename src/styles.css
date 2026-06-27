@@ -3031,7 +3031,7 @@ body.reader-locked{overflow:hidden!important}
      buton kayması YOK (butonlar native doğru seçilir). */
   #reader-overlay.open{flex-direction:row!important;align-items:stretch!important}
   .reader-right{
-    position:static!important;order:-1!important;
+    position:relative!important;order:-1!important;
     width:min(35vw,340px)!important;max-width:35vw!important;
     height:auto!important;max-height:none!important;min-height:0!important;align-self:stretch!important;
     flex:0 0 auto!important;
@@ -3039,11 +3039,12 @@ body.reader-locked{overflow:hidden!important}
     overflow-y:auto!important;overflow-x:hidden!important;
     -webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important;
     border:none!important;border-right:1.5px solid var(--border-strong)!important;
-    background:var(--bg-1)!important;z-index:auto!important;padding:0!important;gap:0!important;
+    background:var(--bg-1)!important;z-index:520!important;padding:0!important;gap:0!important;
     transform:none!important;inset:auto!important;
+    pointer-events:auto!important;isolation:isolate!important;
   }
   .reader-center{flex:1 1 0%!important;min-width:0!important;min-height:0!important;
-    padding:0!important;order:0!important}
+    padding:0!important;order:0!important;position:relative!important;z-index:0!important}
   .rp-konu-section{display:none!important}
   /* Soru bölümü: içeriğe göre (büyümez/scroll yok) → tüm satırlar (araçlar dahil) görünür. */
   .rp-soru-section{
@@ -3055,7 +3056,8 @@ body.reader-locked{overflow:hidden!important}
   #reader-overlay{--rl-row:clamp(24px,8.2dvh,34px)}
 
   /* CANVAS: panel flex ile kendi yerini aldı → sol-padding hilesi YOK, sade 8px */
-  .reader-canvas-wrap{padding:8px!important}
+  .reader-canvas-wrap{padding:8px!important;position:relative!important;z-index:0!important}
+  .reader-page-stage,.pdf-page-wrap{position:relative!important;z-index:0!important}
 
   /* ── SATIR 1: Konu adı (sol) + ≡ (sağ) ── */
   .rp-header{
@@ -3064,6 +3066,7 @@ body.reader-locked{overflow:hidden!important}
     overflow:hidden!important;
     padding:0!important;border-bottom:1px solid var(--border)!important;
     display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:stretch!important;
+    position:relative!important;z-index:2!important;pointer-events:auto!important;
   }
   .rp-header-top{
     display:flex!important;align-items:center!important;justify-content:space-between!important;
@@ -3093,6 +3096,7 @@ body.reader-locked{overflow:hidden!important}
     display:grid!important;grid-template-columns:1fr auto 1fr;align-items:center!important;
     padding:0 10px!important;gap:6px!important;
     border-bottom:1px solid var(--border)!important;overflow:hidden!important;
+    position:relative!important;z-index:2!important;pointer-events:auto!important;
   }
   .auto-timer-bar .timer-display{
     justify-self:start!important;
@@ -3128,7 +3132,7 @@ body.reader-locked{overflow:hidden!important}
   .soru-list{
     width:100%!important;flex:none!important;flex-shrink:0!important;
     height:calc(var(--rl-row) * 1.1)!important;min-height:calc(var(--rl-row) * 1.1)!important;
-    position:static!important;
+    position:relative!important;z-index:2!important;pointer-events:auto!important;
     display:flex!important;align-items:center!important;justify-content:center!important;
     padding:0 10px!important;border-bottom:1px solid var(--border)!important;
     background:transparent!important;border-right:none!important;
@@ -3166,6 +3170,7 @@ body.reader-locked{overflow:hidden!important}
     margin-top:0!important;  /* başka medyadaki margin-top:auto'yu ez → ortadaki boş satır kalkar */
     display:flex!important;flex-direction:column!important;justify-content:center!important;
     gap:4px!important;padding:0 10px!important;border-bottom:1px solid var(--border)!important;overflow:hidden!important;
+    position:relative!important;z-index:2!important;pointer-events:auto!important;
   }
   .tp-label{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:6px!important;font-size:9px!important;color:var(--text-muted)!important}
   .tp-track{display:block!important;height:5px!important}

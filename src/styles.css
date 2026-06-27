@@ -522,19 +522,7 @@ body.reader-locked{overflow:hidden!important}
 /* ═══ TAM EKRAN (SOLVE): SABİT KENAR PANEL + 3-BUTON YÜZER PALET ═══ */
 .solve-palette{position:fixed;overflow:visible}
 
-/* YÜZER ARAÇ PALETİ — yalnız pan/kalem/silgi; küçük, sürüklenebilir. Varsayılan sağ-alt.
-   (id+2class özgüllük → kenar-panel kurallarını ezer) */
-#reader-overlay.solve-mode .solve-tool-palette{
-  left:auto!important;right:16px!important;bottom:78px!important;top:auto!important;
-  transform:none!important;width:auto!important;height:auto!important;max-width:none!important;
-  flex-direction:column!important;border-radius:16px!important;overflow:visible!important;
-  gap:4px!important;padding:6px 8px 8px!important;
-}
-#reader-overlay.solve-mode .solve-tool-palette .sp-tools-wrap{
-  display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;
-  align-items:center!important;justify-content:center!important;gap:7px!important;
-}
-#reader-overlay.solve-mode .solve-tool-palette .sp-handle{padding:0 14px 3px!important;align-self:center!important}
+/* (Yüzer araç paleti kaldırıldı — tüm araçlar sabit panelde.) */
 
 /* SABİT KENAR PANEL (#solvePalette) — pan/kalem/silgi DIŞINDAKİ her şey. Sürüklenmez. */
 #reader-overlay.solve-mode #solvePalette{
@@ -546,9 +534,10 @@ body.reader-locked{overflow:hidden!important}
   display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;
   align-items:center!important;justify-content:center!important;gap:7px!important;width:100%!important;
 }
-#reader-overlay.solve-mode #solvePalette .sp-no{flex:1 0 100%!important;justify-content:center!important;padding:0 0 2px!important}
+/* Soru no varsayılan: şıklarla AYNI satırda (inline) — dikey tam ekran böyle */
+#reader-overlay.solve-mode #solvePalette .sp-no{flex:0 0 auto!important;justify-content:center!important;padding:0 4px 0 0!important}
 
-/* Yatay: panel SOL kenarda, tam yükseklik */
+/* Yatay: panel SOL kenarda, tam yükseklik. Dar olduğundan soru no KENDİ satırında (2 sütun şık) */
 @media (orientation:landscape){
   #reader-overlay.solve-mode #solvePalette{
     left:0!important;top:0!important;bottom:0!important;right:auto!important;transform:none!important;
@@ -556,6 +545,7 @@ body.reader-locked{overflow:hidden!important}
     border-right:1.5px solid var(--border-strong)!important;padding:10px 8px!important;
     overflow-y:auto!important;overflow-x:hidden!important;
   }
+  #reader-overlay.solve-mode #solvePalette .sp-no{flex:1 0 100%!important;padding:0 0 2px!important}
 }
 /* Dikey: panel ÜST kenarda, tam genişlik */
 @media (orientation:portrait){

@@ -96,9 +96,13 @@ function initFabricForPage(canvasEl, w, h, pageNum){
   fc.on('object:added', debounceSave);
   fc.on('object:modified', debounceSave);
   fc.on('object:removed', debounceSave);
-  fc.on('text:changed', debounceSave);
+  fc.on('text:changed', opt=>{
+    stabilizeTextSelection(opt?.target);
+    debounceSave();
+  });
   fc.on('text:editing:exited', opt=>{
     const target = opt?.target;
+    detachTextInputGuard(target);
     if(target && target.type === 'i-text' && !String(target.text || '').trim()){
       fc.remove(target);
     }
@@ -115,6 +119,46 @@ function saveDrawingForPage(pageNum){
   appState.drawings[key] = json;
   appState.drawingDims[key] = { w: fc.width, h: fc.height };
   persistDrawingCloud(key, json, fc.width, fc.height);
+}
+
+function stabilizeTextSelection(target){
+  if(!target || target.type !== 'i-text' || !target.isEditing || !target.hiddenTextarea) return;
+  const ta = target.hiddenTextarea;
+  const len = ta.value.length;
+  const textareaAllSelected = ta.selectionStart === 0 && ta.selectionEnd === len;
+  const fabricAllSelected = target.selectionStart === 0 && target.selectionEnd === len;
+  if(len > 0 && (textareaAllSelected || fabricAllSelected)){
+    ta.selectionStart = len;
+    ta.selectionEnd = len;
+    target.selectionStart = len;
+    target.selectionEnd = len;
+  }
+}
+
+function attachTextInputGuard(target){
+  if(!target || target.type !== 'i-text' || !target.hiddenTextarea || target._textInputGuard) return;
+  const ta = target.hiddenTextarea;
+  const collapseBeforeInsert = e=>{
+    const isInsert = e.type === 'beforeinput'
+      ? String(e.inputType || '').startsWith('insert')
+      : (!e.ctrlKey && !e.metaKey && !e.altKey && String(e.key || '').length === 1);
+    if(isInsert) stabilizeTextSelection(target);
+  };
+  const collapseAfterInput = ()=>setTimeout(()=>stabilizeTextSelection(target), 0);
+  ta.addEventListener('beforeinput', collapseBeforeInsert);
+  ta.addEventListener('keydown', collapseBeforeInsert);
+  ta.addEventListener('input', collapseAfterInput);
+  target._textInputGuard = { collapseBeforeInsert, collapseAfterInput };
+}
+
+function detachTextInputGuard(target){
+  const guard = target?._textInputGuard;
+  const ta = target?.hiddenTextarea;
+  if(!guard || !ta) return;
+  ta.removeEventListener('beforeinput', guard.collapseBeforeInsert);
+  ta.removeEventListener('keydown', guard.collapseBeforeInsert);
+  ta.removeEventListener('input', guard.collapseAfterInput);
+  target._textInputGuard = null;
 }
 
 function setObjectsInteractive(fc, selectable){
@@ -182,9 +226,13 @@ function initFabricOnCanvas(canvasEl, w, h){
   fc.on('object:added', debounceAutoSave);
   fc.on('object:modified', debounceAutoSave);
   fc.on('object:removed', debounceAutoSave);
-  fc.on('text:changed', debounceAutoSave);
+  fc.on('text:changed', opt=>{
+    stabilizeTextSelection(opt?.target);
+    debounceAutoSave();
+  });
   fc.on('text:editing:exited', opt=>{
     const target = opt?.target;
+    detachTextInputGuard(target);
     if(target && target.type === 'i-text' && !String(target.text || '').trim()){
       fc.remove(target);
     }
@@ -259,6 +307,7 @@ function flushActiveTextEditing(){
 // main.js ve diğer modüller window.xxx ile çağırabilsin
 window.initFabricForPage = initFabricForPage;
 window.saveDrawingForPage = saveDrawingForPage;
+window.attachTextInputGuard = attachTextInputGuard;
 window.setObjectsInteractive = setObjectsInteractive;
 window.clearToolHandlers = clearToolHandlers;
 window.initFabricCanvas = initFabricCanvas;

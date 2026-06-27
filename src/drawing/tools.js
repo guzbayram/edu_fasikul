@@ -93,7 +93,14 @@ function applyTool(tool){
           fc.add(t);
           fc.setActiveObject(t);
           t.enterEditing();
-          if(t.hiddenTextarea) t.hiddenTextarea.focus();
+          if(t.hiddenTextarea){
+            t.hiddenTextarea.focus();
+            t.hiddenTextarea.selectionStart = 0;
+            t.hiddenTextarea.selectionEnd = 0;
+          }
+          t.selectionStart = 0;
+          t.selectionEnd = 0;
+          window.attachTextInputGuard?.(t);
           fc.renderAll();
           clearToolHandlers(fc);
         };

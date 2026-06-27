@@ -2433,7 +2433,7 @@ body.reader-locked{overflow:hidden!important}
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   width:36px;height:36px;border-radius:9px;
   background:var(--bg-3);border:1.5px solid var(--border);color:var(--text-1);
-  font-size:19px;line-height:1;cursor:pointer;transition:all .15s;
+  font-size:25px;font-weight:900;line-height:1;cursor:pointer;transition:all .15s;
 }
 .rp-reset-btn:hover{background:var(--bg-4);color:var(--text-0)}
 .rp-konu-list-btn{

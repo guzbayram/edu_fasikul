@@ -519,6 +519,27 @@ body.reader-locked{overflow:hidden!important}
   }
 }
 
+/* Telefon YATAY: zoom/sayfa çubuğu SOL araç panelinin EN ALT satırı (panelin altına bitişik).
+   Panel bottom:84px'te biter, çubuk altındaki 84px'i doldurur → temiz ayrım, scroll baskısı az. */
+@media (orientation:landscape) and (max-height:500px){
+  #reader-overlay.solve-mode #solvePalette{bottom:84px!important}
+  #reader-overlay.solve-mode .solve-zoombar{
+    left:0!important;bottom:0!important;right:auto!important;top:auto!important;transform:none!important;
+    width:clamp(132px,20vw,172px)!important;height:84px!important;box-sizing:border-box!important;
+    flex-wrap:wrap!important;justify-content:center!important;align-content:center!important;gap:6px!important;
+    border:none!important;border-top:1.5px solid var(--border-strong)!important;border-right:1.5px solid var(--border-strong)!important;border-radius:0!important;
+    background:var(--bg-1)!important;padding:4px 6px calc(4px + env(safe-area-inset-bottom))!important;z-index:360!important;
+  }
+  #reader-overlay.solve-mode .solve-zoombar .page-nav-btn{width:32px!important;height:32px!important;font-size:15px!important}
+}
+
+/* Reader açıkken bildirimler: ÜST-ORTADA (kart/boş alan) ve tıklamayı GEÇİRİR (engellemez) */
+#reader-overlay.open ~ .toast-container{
+  top:12px!important;bottom:auto!important;right:auto!important;left:50%!important;
+  transform:translateX(-50%)!important;align-items:center!important;max-width:92vw!important;
+}
+#reader-overlay.open ~ .toast-container .toast{pointer-events:none!important}
+
 /* En çok kullanılan 3 araç (pan/kalem/silgi) — büyük, öncelikli, tek satır */
 #reader-overlay.solve-mode #solvePalette .sp-tools-row{flex-wrap:nowrap!important;gap:8px!important}
 #reader-overlay.solve-mode #solvePalette .sp-tools-row .tool-btn{width:46px!important;height:46px!important;font-size:23px!important;border-radius:13px!important}

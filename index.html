@@ -550,6 +550,7 @@
       <button class="page-nav-btn rp-page-nav" onclick="changePage(-1)" title="Önceki sayfa">◀</button>
       <button class="page-nav-btn" onclick="changeZoom(-10)" title="Uzaklaştır">−</button>
       <span class="zoom-label js-zoom-pct" id="zoomLabel">%100</span>
+      <span class="page-ind-mini js-page-ind" title="Sayfa">1 / 1</span>
       <button class="page-nav-btn" onclick="changeZoom(10)" title="Yaklaştır">+</button>
       <button class="page-nav-btn rp-page-nav" onclick="changePage(1)" title="Sonraki sayfa">▶</button>
     </div>
@@ -557,9 +558,10 @@
   </div>
 
   <!-- ═══ TELEFON: Tam ekran çözüm modu — yüzer/sürüklenebilir araç paleti ═══ -->
-  <div class="solve-palette" id="solvePalette">
-    <div class="sp-handle" id="spHandle" title="Taşı">⠿⠿</div>
-    <div class="sp-row sp-controls">
+  <!-- AYRI YÜZER PENCERE: kalem / silgi / pan + renkler -->
+  <div class="solve-palette solve-tool-palette" id="solveToolPalette">
+    <div class="sp-handle" id="spToolHandle" title="Taşı">⠿</div>
+    <div class="sp-row sp-tools">
       <button class="tool-btn" data-tool="select" onclick="setTool(this,'select')" title="Gez / Kaydır (pan · zoom · soru geçişi)">✋</button>
       <button class="tool-btn" data-tool="pen" onclick="setTool(this,'pen')" title="Kalem">✏️</button>
       <button class="tool-btn" data-tool="eraser" onclick="setTool(this,'eraser')" title="Silgi">🗑️</button>
@@ -569,6 +571,16 @@
         <span class="color-dot" style="background:#dc2626" data-color="#dc2626" onclick="setColor(this)" title="Kırmızı"></span>
         <span class="color-dot" style="background:#16a34a" data-color="#16a34a" onclick="setColor(this)" title="Yeşil"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- ANA YÜZER PENCERE: soru no + şıklar + canlı/ileri-geri/kopyala/çıkış -->
+  <div class="solve-palette" id="solvePalette">
+    <div class="sp-handle" id="spHandle" title="Taşı">⠿⠿</div>
+    <div class="sp-row sp-controls">
+      <button class="tool-btn live-session-btn" onclick="toggleLiveSession()" title="Canlı Ders — iki cihazda sayfayı eşitle">📡</button>
+      <button class="tool-btn" onclick="prevQuestion();window.renderSolveAnswers&&renderSolveAnswers()" title="Önceki soru">◀</button>
+      <button class="tool-btn" onclick="nextQuestion();window.renderSolveAnswers&&renderSolveAnswers()" title="Sonraki soru">▶</button>
       <button class="tool-btn" onclick="copySoruKart()" title="Soruyu kopyala — LLM'e çözüm sor">📋</button>
       <button class="tool-btn sp-exit" onclick="exitSolveMode()" title="Çözüm modundan çık">✕</button>
     </div>
@@ -580,6 +592,7 @@
     <button class="page-nav-btn rp-page-nav" onclick="changePage(-1)" title="Önceki sayfa">◀</button>
     <button class="page-nav-btn" onclick="changeZoom(-10)" title="Uzaklaştır">−</button>
     <span class="zoom-label js-zoom-pct">%100</span>
+    <span class="page-ind-mini js-page-ind" title="Sayfa">1 / 1</span>
     <button class="page-nav-btn" onclick="changeZoom(10)" title="Yaklaştır">+</button>
     <button class="page-nav-btn rp-page-nav" onclick="changePage(1)" title="Sonraki sayfa">▶</button>
   </div>

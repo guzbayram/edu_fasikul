@@ -515,6 +515,20 @@ body.reader-locked{overflow:hidden!important}
 .sp-answers .sp-ans:disabled{cursor:default}
 .sp-exit{background:rgba(239,68,68,.16)!important;border-color:var(--red)!important}
 
+/* Şıkların başındaki soru no */
+.sp-no{display:inline-flex;align-items:center;font-weight:800;font-size:15px;color:var(--text-0);padding:0 8px 0 2px;white-space:nowrap}
+
+/* ÇİZİM ARAÇLARI ayrı yüzer pencere — ana paletten bağımsız konum (varsayılan sağ-üst).
+   !important: yatay/dikey solve-palette konum kurallarını ezer (üst üste binmesin). */
+.solve-tool-palette{
+  left:auto!important;right:14px!important;top:14px!important;bottom:auto!important;
+  transform:none!important;width:auto!important;height:auto!important;max-width:none!important;
+  border-radius:16px!important;flex-direction:column!important;overflow:visible!important;
+  justify-content:flex-start!important;
+}
+.solve-tool-palette .sp-tools{flex-wrap:wrap!important;justify-content:center!important;max-width:150px!important;gap:6px!important}
+.solve-tool-palette .sp-handle{padding:0 16px 4px!important}
+
 /* Dikey: palet EN ÜSTTE, tam genişlik — satırlar genişliğe eşit dağılır */
 @media (orientation:portrait){
   #reader-overlay.solve-mode .solve-palette{
@@ -2581,6 +2595,9 @@ body.reader-locked{overflow:hidden!important}
 }
 .rp-zoom-bar .page-nav-btn{width:30px;height:30px;border-radius:8px;font-size:15px;font-weight:700}
 .rp-zoom-bar .zoom-label{font-size:12px;color:var(--text-muted);min-width:38px;text-align:center}
+/* Zoom çubuklarında kompakt sayfa göstergesi (− ve + arası) */
+.page-ind-mini{font-size:12px;font-weight:700;color:var(--text-1);min-width:46px;text-align:center;white-space:nowrap;padding:0 2px}
+#reader-overlay.solve-mode .solve-zoombar .page-ind-mini{font-size:13px;color:var(--text-0)}
 /* Sayfa ◀▶ yalnız yatay modda zoom barında görünür (dik+masaüstü alt barda) */
 .rp-zoom-bar .rp-page-nav{display:none}
 

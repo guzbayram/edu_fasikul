@@ -68,7 +68,9 @@ function renderSolveAnswers(){
   if(!s || isKonu){ wrap.innerHTML = ''; return; }
   const state = appState.sorularState[s._uid || s.no];
   const answered = !!state?.answered;
-  wrap.innerHTML = ['A','B','C','D','E'].map(opt=>{
+  // Şıkların başına soru no
+  const noHtml = `<span class="sp-no">S.${s.no}</span>`;
+  wrap.innerHTML = noHtml + ['A','B','C','D','E'].map(opt=>{
     let cls = 'sp-ans';
     if(answered){
       if(opt === s.cevap) cls += ' correct-ans';
@@ -78,10 +80,10 @@ function renderSolveAnswers(){
   }).join('');
 }
 
-// Yüzer paleti sürükle (tutamaçtan)
-function initSolvePaletteDrag(){
-  const pal = document.getElementById('solvePalette');
-  const handle = document.getElementById('spHandle');
+// Yüzer paleti sürükle (tutamaçtan) — birden çok palet için genel
+function makeDraggable(palId, handleId){
+  const pal = document.getElementById(palId);
+  const handle = document.getElementById(handleId);
   if(!pal || !handle || handle.dataset.dragReady) return;
   handle.dataset.dragReady = '1';
   let sx=0, sy=0, ox=0, oy=0, dragging=false;
@@ -106,6 +108,10 @@ function initSolvePaletteDrag(){
   handle.addEventListener('pointermove', e=>{ if(dragging){ e.preventDefault(); move(e.clientX, e.clientY); } });
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
+}
+function initSolvePaletteDrag(){
+  makeDraggable('solvePalette', 'spHandle');
+  makeDraggable('solveToolPalette', 'spToolHandle');
 }
 
 // Görünüm Modu menüsü: telefonda 1sn sabit basışla açılır (initLongPressDraw içinde).

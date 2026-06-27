@@ -617,6 +617,9 @@ function updatePageIndicator(){
   document.getElementById('pageIndicator').textContent = isSolutionPage
     ? `Çözüm / ${displayTotal} sayfa`
     : `Sayfa ${visibleIdx + 1} / ${displayTotal}`;
+  // Zoom çubuklarındaki kompakt sayfa göstergesi (− ve + arası)
+  const mini = isSolutionPage ? `Çz / ${displayTotal}` : `${visibleIdx + 1} / ${displayTotal}`;
+  document.querySelectorAll('.js-page-ind').forEach(el => el.textContent = mini);
   document.getElementById('rpSure').textContent = formatTime(appState.timerSec);
 }
 

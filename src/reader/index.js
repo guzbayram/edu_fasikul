@@ -70,6 +70,7 @@ async function openReader(dersId, fasikulId){
 
   // Open overlay
   document.getElementById('reader-overlay').classList.add('open');
+  window.scheduleReaderViewportReflow?.();
   // iOS: body kaydırılmışsa fixed overlay'de dokunma/çizim scrollY kadar kayıyor.
   // Body'yi mevcut konumda kilitle (scrollY=0) → koordinat hizalı.
   appState._savedScrollY = window.scrollY || window.pageYOffset || 0;
@@ -216,6 +217,7 @@ function closeReader(){
   renderDerslerGrid();
   if(window.currentDrawerDers) renderFasikulCards(window.currentDrawerDers.fasikuller, window.currentDrawerDers);
   document.getElementById('reader-overlay').classList.remove('open');
+  window.clearReaderViewport?.();
   // Body kilidini aç ve önceki scroll konumunu geri yükle
   document.body.classList.remove('reader-locked');
   document.body.style.top = '';

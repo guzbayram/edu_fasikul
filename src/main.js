@@ -37,6 +37,7 @@ import './ui/toast.js';
 import './ui/tooltip.js';
 import './ui/router.js';
 import './ui/onboarding.js';
+import './ui/viewportfix.js';
 import './panels/dashboard.js';
 import './panels/hatalilar.js';
 import './panels/profil.js';

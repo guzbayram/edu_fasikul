@@ -442,6 +442,9 @@ body.reader-locked{overflow:hidden!important}
 /* Panel/palet butonlarında çift-dokun-zoom'u kapat (çift dokununca ekran yakınlaşmasın) */
 .reader-right,.reader-right *,.solve-palette,.solve-palette *,.reader-toolbar,.reader-toolbar *,
 .reader-bottom-bar,.reader-bottom-bar *,.reader-canvas-wrap{ touch-action:manipulation; }
+.reader-canvas-wrap .canvas-container,
+.reader-canvas-wrap .upper-canvas,
+.reader-canvas-wrap .lower-canvas{ touch-action:none!important; }
 
 /* Özel tooltip balonu (uzun-basışta açılır, otomatik gizlenir) */
 .tip-bubble{

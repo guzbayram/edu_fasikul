@@ -656,7 +656,7 @@ function changeZoom(delta){
   const viewportY = (wrap?.clientHeight || 0) / 2;
   const contentX = (wrap?.scrollLeft || 0) + viewportX;
   const contentY = (wrap?.scrollTop || 0) + viewportY;
-  appState.zoom = Math.max(40,Math.min(200,appState.zoom+delta));
+  appState.zoom = Math.max(40,Math.min(300,appState.zoom+delta));
   setZoomLabel(appState.zoom);
   const ratio = appState.zoom / renderedZoom;
   // Anlık görsel ölçek: render beklemeden zoom hissi (merkez = viewport ortası)
@@ -728,7 +728,7 @@ function initCardZoomPan(){
       const relY = viewportY + beforeTop;
       const oldZoom = appState.zoom;
       const delta = e.deltaY < 0 ? 5 : -5;
-      appState.zoom = Math.max(40, Math.min(200, appState.zoom + delta));
+      appState.zoom = Math.max(40, Math.min(300, appState.zoom + delta));
       if(appState.zoom === oldZoom) return;
       setZoomLabel(appState.zoom);
       scheduleCardZoomRender({
@@ -844,7 +844,7 @@ function initTouchGestures() {
     if (!g) return;
     if (e.touches.length >= 2) return; // hâlâ 2 parmak
 
-    const newZoom = Math.max(40, Math.min(200, Math.round(g.startZoom * g.scale)));
+    const newZoom = Math.max(40, Math.min(300, Math.round(g.startZoom * g.scale)));
     const wrapRect = wrap.getBoundingClientRect();
     clearVisualScale();
 

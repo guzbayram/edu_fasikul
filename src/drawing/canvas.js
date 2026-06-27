@@ -60,12 +60,21 @@ function rememberCanvasDrawTap(){
   }
 }
 
+function bindCanvasDrawTapMemory(fc){
+  if(!fc?.upperCanvasEl || fc._drawTapMemoryReady) return;
+  fc._drawTapMemoryReady = true;
+  ['pointerdown','touchstart','mousedown'].forEach(type=>{
+    fc.upperCanvasEl.addEventListener(type, rememberCanvasDrawTap, { passive: true, capture: true });
+  });
+}
+
 function initFabricForPage(canvasEl, w, h, pageNum){
   const fc = new fabric.Canvas(canvasEl, {
     isDrawingMode: false, selection: true,
     width: w, height: h, backgroundColor: 'transparent'
   });
   patchGetPointer(fc);
+  bindCanvasDrawTapMemory(fc);
   fc._pageNum = pageNum;
   appState.fabricCanvases[pageNum] = fc;
 
@@ -220,6 +229,7 @@ function initFabricOnCanvas(canvasEl, w, h){
     backgroundColor: 'transparent'
   });
   patchGetPointer(fc);
+  bindCanvasDrawTapMemory(fc);
   appState.fabricCanvas = fc;
 
   // Sayfa için kayıtlı çizim varsa yükle

@@ -169,7 +169,7 @@ function toggleCardFill(){
     const factor = availW / r.width;
     if(Math.abs(factor - 1) > 0.02){
       appState._fillBaseZoom = appState.zoom;
-      appState.zoom = Math.max(40, Math.min(200, Math.round(appState.zoom * factor)));
+      appState.zoom = Math.max(40, Math.min(300, Math.round(appState.zoom * factor)));
     }
   } else {
     appState.zoom = appState._fillBaseZoom; appState._fillBaseZoom = null;
@@ -183,10 +183,19 @@ function initSolveDoubleTap(){
   const wrap = document.getElementById('readerCanvasWrap');
   if(!wrap || wrap.dataset.solveDtReady) return;
   wrap.dataset.solveDtReady = '1';
+  const shouldIgnoreFillTap = ()=>{
+    if(appState.drawTool !== 'select') return true;
+    if(Date.now() - (appState._lastCanvasDrawTapAt || 0) < 700) return true;
+    return false;
+  };
   // Masaüstü çift tık + dokunmatik çift dokunma → kartı alana doldur
-  wrap.addEventListener('dblclick', ()=> toggleCardFill());
+  wrap.addEventListener('dblclick', ()=>{
+    if(shouldIgnoreFillTap()) return;
+    toggleCardFill();
+  });
   let lastTap = 0, lx = 0, ly = 0;
   wrap.addEventListener('touchend', e=>{
+    if(shouldIgnoreFillTap()){ lastTap = 0; return; }
     if(e.changedTouches.length !== 1) return;
     const t = e.changedTouches[0], now = Date.now();
     if(now - lastTap < 300 && Math.hypot(t.clientX - lx, t.clientY - ly) < 30){

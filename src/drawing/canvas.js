@@ -54,6 +54,12 @@ function patchGetPointer(fc){
 }
 window.patchGetPointer = patchGetPointer;
 
+function rememberCanvasDrawTap(){
+  if(['pen','tukenmez','marker'].includes(appState.drawTool)){
+    appState._lastCanvasDrawTapAt = Date.now();
+  }
+}
+
 function initFabricForPage(canvasEl, w, h, pageNum){
   const fc = new fabric.Canvas(canvasEl, {
     isDrawingMode: false, selection: true,
@@ -87,6 +93,7 @@ function initFabricForPage(canvasEl, w, h, pageNum){
     }
   };
   fc.on('mouse:down', fc._pageSelectHandler);
+  fc.on('mouse:down', rememberCanvasDrawTap);
 
   // Otomatik kayıt
   const debounceSave = ()=>{
@@ -241,6 +248,7 @@ function initFabricOnCanvas(canvasEl, w, h){
 
   // Undo stack
   fc.on('object:added', ()=>{ appState.undoStack.push(JSON.stringify(fc)); appState.redoStack=[]; });
+  fc.on('mouse:down', rememberCanvasDrawTap);
 
   applyTool(appState.drawTool);
 }

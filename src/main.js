@@ -1165,8 +1165,11 @@ document.addEventListener('keydown', e=>{
     if(e.ctrlKey&&e.key==='z'){ e.preventDefault(); undoDraw(); }
     if(e.ctrlKey&&(e.key==='y'||e.key==='Y')){ e.preventDefault(); redoDraw(); }
     if(e.ctrlKey&&e.key==='s'){ e.preventDefault(); saveDrawing(); showToast('Çizimler kaydedildi ✓','success'); }
-    if(e.key==='p'&&!e.ctrlKey){ const btn=document.querySelector('[data-tool="pen"]'); if(btn) setTool(btn,'pen'); }
-    if(e.key==='e'&&!e.ctrlKey){ const btn=document.querySelector('[data-tool="eraser"]'); if(btn) setTool(btn,'eraser'); }
+    const typingTarget = document.activeElement?.tagName === 'INPUT'
+      || document.activeElement?.tagName === 'TEXTAREA'
+      || document.activeElement?.isContentEditable;
+    if(!typingTarget && e.key==='p'&&!e.ctrlKey){ const btn=document.querySelector('[data-tool="pen"]'); if(btn) setTool(btn,'pen'); }
+    if(!typingTarget && e.key==='e'&&!e.ctrlKey){ const btn=document.querySelector('[data-tool="eraser"]'); if(btn) setTool(btn,'eraser'); }
   } else if(e.key==='F11'){
     e.preventDefault();
     toggleAppFullscreen();

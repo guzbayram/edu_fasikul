@@ -1,6 +1,15 @@
 import { appState } from '../state/appState.js';
 
+const DRAW_TAP_TOOL_LOCK_MS = 450;
+
+function shouldIgnoreToolChange(tool){
+  if(tool !== 'eraser') return false;
+  const lastTap = appState._lastCanvasDrawTapAt || 0;
+  return Date.now() - lastTap < DRAW_TAP_TOOL_LOCK_MS;
+}
+
 function setTool(btn, tool){
+  if(shouldIgnoreToolChange(tool)) return;
   document.querySelectorAll('.tool-btn[data-tool]').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll(`.tool-btn[data-tool="${tool}"]`).forEach(b=>b.classList.add('active'));
   appState.drawTool = tool;

@@ -502,8 +502,8 @@ body.reader-locked{overflow:hidden!important}
 /* Telefon YATAY: SAĞ kenar ortası, dikey tek sütun 3 buton */
 @media (orientation:landscape) and (max-height:500px){
   #reader-overlay.solve-mode .solve-quick-tools{
-    display:flex;flex-direction:column;gap:8px;
-    position:fixed;right:10px;top:50%;transform:translateY(-50%);z-index:410;
+    display:flex!important;flex-direction:column;gap:8px;
+    position:fixed;right:6px!important;left:auto!important;top:50%;transform:translateY(-50%);z-index:410;
     background:var(--bg-1);border:1px solid var(--border-strong);border-radius:14px;
     padding:7px 6px;box-shadow:var(--shadow-lg);
   }
@@ -540,13 +540,20 @@ body.reader-locked{overflow:hidden!important}
 }
 #reader-overlay.open ~ .toast-container .toast{pointer-events:none!important}
 
-/* En çok kullanılan 3 araç (pan/kalem/silgi) — büyük, öncelikli, tek satır */
-#reader-overlay.solve-mode #solvePalette .sp-tools-row{flex-wrap:nowrap!important;gap:8px!important}
-#reader-overlay.solve-mode #solvePalette .sp-tools-row .tool-btn{width:46px!important;height:46px!important;font-size:23px!important;border-radius:13px!important}
-/* Geri/İleri her zaman yan yana (sarmasın) */
-#reader-overlay.solve-mode #solvePalette .sp-undoredo-row{flex-wrap:nowrap!important}
-/* Yardımcılar alt grup */
-#reader-overlay.solve-mode #solvePalette .sp-util-row{margin-top:2px!important}
+/* Tüm butonlar tek sarmalanan satırda. Boyut: dikeyde ~2 satır, yatayda ~3 satır olacak şekilde. */
+#reader-overlay.solve-mode #solvePalette .sp-allbtns{gap:7px!important}
+/* Dikey (geniş üst panel): butonlar büyükçe, 12 buton ~2 satıra sarsın */
+@media (orientation:portrait){
+  #reader-overlay.solve-mode #solvePalette .sp-allbtns .tool-btn{width:44px!important;height:44px!important;font-size:21px!important}
+  #reader-overlay.solve-mode #solvePalette .sp-allbtns .color-dot{width:26px!important;height:26px!important}
+}
+/* Yatay (dar sol panel): butonlar küçük, 12 buton ~3 satıra sarsın */
+@media (orientation:landscape) and (max-height:500px){
+  #reader-overlay.solve-mode #solvePalette .sp-allbtns{gap:6px!important}
+  #reader-overlay.solve-mode #solvePalette .sp-allbtns .tool-btn{width:34px!important;height:34px!important;font-size:17px!important;border-radius:9px!important}
+  #reader-overlay.solve-mode #solvePalette .sp-allbtns .color-dot{width:22px!important;height:22px!important}
+  #reader-overlay.solve-mode #solvePalette .sp-answers .sp-ans{width:34px!important;height:34px!important;font-size:13px!important}
+}
 
 .solve-palette{
   position:fixed;z-index:400;left:50%;bottom:18px;transform:translateX(-50%);

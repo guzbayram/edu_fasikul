@@ -4,7 +4,8 @@ import { _getUserKey } from '../firebase/firestore.js';
 // ══════════════════════════════════════════════════════════
 // CANLI DERS — aynı hesapta iki cihaz arasında sayfa/konu eşitleme
 // Çift yönlü ayna: hangi cihaz gezinirse diğeri takip eder.
-// (Çizim/çözüm senkronu zaten cizimler/cozumler ile canlı.)
+// Çizim aynalama yalnız canlı ders açıkken çalışır; kapalıyken bulut yedekleme
+// sürer ama başka açık cihazın canvas'ına anlık uygulanmaz.
 // ══════════════════════════════════════════════════════════
 let _canliUnsub = null;
 let _publishTimer = null;
@@ -77,11 +78,55 @@ export function toggleLiveSession(){
   document.querySelectorAll('.live-session-btn').forEach(b=>b.classList.toggle('active', appState.liveSession));
   if(appState.liveSession){
     subscribeCanli(uid);
+    subscribeRealtimeDrawings(uid);
     publishCanli();
     window.showToast?.('Canlı Ders açık — sayfalar eşlenecek 👀','success');
   } else {
     unsubscribeCanli();
+    unsubscribeRealtimeDrawings();
     window.showToast?.('Canlı Ders kapalı','info');
+  }
+}
+
+function subscribeRealtimeDrawings(uid){
+  unsubscribeRealtimeDrawings();
+  if(!appState.liveSession || !window._fsOnSnapshot || !window._db || !uid) return;
+  const cizimlerRef = window._fsCollection(window._db,'kullanicilar',uid,'cizimler');
+  window._realtimeUnsubCizimler = window._fsOnSnapshot(cizimlerRef, (snapshot)=>{
+    snapshot.docChanges().forEach(change=>{
+      if(change.type==='removed') return;
+      if(change.doc.metadata.hasPendingWrites) return;
+      const data = change.doc.data();
+      const key = data.key;
+      if(!key || !data.json) return;
+      if(appState.drawings[key] === data.json) return;
+      appState.drawings[key] = data.json;
+      if(data.w && data.h) appState.drawingDims[key] = {w:data.w, h:data.h};
+      const aktifId = appState.aktifFasikul?.id;
+      const currentPage = appState.currentPage;
+      const currentKey = aktifId ? `drawing_${aktifId}_p${currentPage}` : null;
+      if(currentKey === key){
+        const fc = appState.fabricCanvases?.[currentPage] || appState.fabricCanvas;
+        if(fc){
+          fc.loadFromJSON(data.json, ()=>{ window.applyDrawingScale?.(fc, key); fc.renderAll(); });
+        } else {
+          setTimeout(()=>{
+            const fc2 = appState.fabricCanvases?.[currentPage] || appState.fabricCanvas;
+            if(fc2 && appState.drawings[key]) fc2.loadFromJSON(appState.drawings[key], ()=>{ window.applyDrawingScale?.(fc2, key); fc2.renderAll(); });
+          }, 1500);
+        }
+      }
+    });
+  }, (err)=>{
+    console.warn('Cizimler onSnapshot hatası:',err);
+    window.showToast?.('Çizim senkronizasyonu kesildi','error');
+  });
+}
+
+function unsubscribeRealtimeDrawings(){
+  if(window._realtimeUnsubCizimler){
+    window._realtimeUnsubCizimler();
+    window._realtimeUnsubCizimler = null;
   }
 }
 
@@ -127,38 +172,6 @@ export function startRealtimeSync(uid){
     }
   }, (err)=>{ console.warn('Cozumler onSnapshot hatası:',err); });
 
-  // ── Çizimleri dinle ──
-  const cizimlerRef = window._fsCollection(window._db,'kullanicilar',uid,'cizimler');
-  window._realtimeUnsubCizimler = window._fsOnSnapshot(cizimlerRef, (snapshot)=>{
-    snapshot.docChanges().forEach(change=>{
-      if(change.type==='removed') return;
-      if(change.doc.metadata.hasPendingWrites) return;
-      const data = change.doc.data();
-      const key = data.key;
-      if(!key || !data.json) return;
-      if(appState.drawings[key] === data.json) return;
-      appState.drawings[key] = data.json;
-      if(data.w && data.h) appState.drawingDims[key] = {w:data.w, h:data.h};
-      const aktifId = appState.aktifFasikul?.id;
-      const currentPage = appState.currentPage;
-      const currentKey = aktifId ? `drawing_${aktifId}_p${currentPage}` : null;
-      if(currentKey === key){
-        const fc = appState.fabricCanvases?.[currentPage] || appState.fabricCanvas;
-        if(fc){
-          fc.loadFromJSON(data.json, ()=>{ window.applyDrawingScale?.(fc, key); fc.renderAll(); });
-        } else {
-          setTimeout(()=>{
-            const fc2 = appState.fabricCanvases?.[currentPage] || appState.fabricCanvas;
-            if(fc2 && appState.drawings[key]) fc2.loadFromJSON(appState.drawings[key], ()=>{ window.applyDrawingScale?.(fc2, key); fc2.renderAll(); });
-          }, 1500);
-        }
-      }
-    });
-  }, (err)=>{
-    console.warn('Cizimler onSnapshot hatası:',err);
-    window.showToast?.('Çizim senkronizasyonu kesildi','error');
-  });
-
   // ── Hatalıları dinle ──
   const hatalilarRef = window._fsCollection(window._db,'kullanicilar',uid,'hatalilar');
   window._realtimeUnsubHatalilar = window._fsOnSnapshot(hatalilarRef, (snapshot)=>{
@@ -176,7 +189,7 @@ export function startRealtimeSync(uid){
 
 export function stopRealtimeSync(){
   if(window._realtimeUnsubCozumler){ window._realtimeUnsubCozumler(); window._realtimeUnsubCozumler=null; }
-  if(window._realtimeUnsubCizimler){ window._realtimeUnsubCizimler(); window._realtimeUnsubCizimler=null; }
+  unsubscribeRealtimeDrawings();
   if(window._realtimeUnsubHatalilar){ window._realtimeUnsubHatalilar(); window._realtimeUnsubHatalilar=null; }
   unsubscribeCanli();
   appState.liveSession = false;

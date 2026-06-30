@@ -1515,6 +1515,7 @@ body.reader-locked{overflow:hidden!important}
   margin-top:14px;padding:14px;border:1px solid var(--border);
   border-radius:var(--radius);background:var(--bg-1)
 }
+.can-admin-json #profileGithubJsonTools{display:block!important}
 .admin-github-json-head{
   display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px
 }

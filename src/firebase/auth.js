@@ -20,7 +20,9 @@ function canOpenManagementPanel(){
 
 function syncManagementNav(){
   const canOpenManagement = canOpenManagementPanel();
+  const canAdminJson = appState.user?.role === 'admin' || String(appState.user?.email || '').toLowerCase() === ADMIN_EMAIL;
   document.documentElement.classList.toggle('can-manage-users', canOpenManagement);
+  document.documentElement.classList.toggle('can-admin-json', canAdminJson);
   const adminBtn = document.getElementById('navAdminBtn');
   if(adminBtn){
     adminBtn.hidden = false;
@@ -541,6 +543,7 @@ export async function doLogout(){
   appState.user = null;
   document.documentElement.classList.remove('guest-mode');
   document.documentElement.classList.remove('can-manage-users');
+  document.documentElement.classList.remove('can-admin-json');
   document.getElementById('screen-app').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
 }

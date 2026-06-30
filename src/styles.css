@@ -1369,7 +1369,7 @@ body.reader-locked{overflow:hidden!important}
   overflow:auto;
 }
 .study-plan-grid{
-  display:grid;grid-template-columns:58px repeat(7,minmax(128px,1fr));grid-template-rows:36px repeat(13,minmax(66px,auto));
+  display:grid;grid-template-columns:58px repeat(7,minmax(128px,1fr));grid-template-rows:36px repeat(16,minmax(66px,auto));
   min-width:980px;border:1px solid var(--border);border-radius:var(--radius);overflow:visible;background:var(--bg-2)
 }
 .study-plan-corner,.study-plan-day,.study-plan-hour{

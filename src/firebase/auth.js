@@ -53,7 +53,7 @@ function dateTimeInputValue(dateLike){
 }
 
 const STUDY_DAYS = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'];
-const STUDY_HOURS = Array.from({length:13}, (_,i)=>8+i);
+const STUDY_HOURS = Array.from({length:16}, (_,i)=>8+i);
 
 function currentWeekValue(){
   const now = new Date();
@@ -300,7 +300,7 @@ function renderStudyPlanGrid(studentUid, planItems){
   window._visibleStudyPlanItems = planItems;
   const bySlot = new Map();
   planItems.forEach(item=>{
-    const duration = Math.max(1, Math.min(13, Number(item.durationHours || 1)));
+    const duration = Math.max(1, Math.min(STUDY_HOURS.length, Number(item.durationHours || 1)));
     for(let i=0;i<duration;i++){
       const coveredHour = Number(item.hour) + i;
       if(STUDY_HOURS.includes(coveredHour)){

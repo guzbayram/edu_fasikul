@@ -13,6 +13,23 @@ function canManageUsers(){
   return appState.user?.role === 'admin';
 }
 
+function canOpenManagementPanel(){
+  const user = appState.user || {};
+  return user.role === 'admin' || user.role === 'ogretmen' || String(user.email || '').toLowerCase() === ADMIN_EMAIL;
+}
+
+function syncManagementNav(){
+  const canOpenManagement = canOpenManagementPanel();
+  document.documentElement.classList.toggle('can-manage-users', canOpenManagement);
+  const adminBtn = document.getElementById('navAdminBtn');
+  if(adminBtn){
+    adminBtn.hidden = false;
+    adminBtn.style.display = canOpenManagement ? '' : 'none';
+  }
+  const managementShortcut = document.getElementById('managementShortcutSection');
+  if(managementShortcut) managementShortcut.style.display = canOpenManagement ? '' : 'none';
+}
+
 function canViewStudent(user){
   if(appState.user?.role === 'admin') return true;
   if(appState.user?.role !== 'ogretmen') return false;
@@ -490,6 +507,9 @@ export function doGuest(){
 }
 
 export function enterApp(name){
+  if(String(appState.user?.email || '').toLowerCase() === ADMIN_EMAIL && appState.user.role !== 'admin'){
+    appState.user.role = 'admin';
+  }
   document.getElementById('welcomeName').textContent = name;
   document.getElementById('profileName').textContent = name;
   const roleLabel = {ogretmen:'Öğretmen',admin:'Yönetici'}[appState.user.role] || 'Öğrenci';
@@ -500,12 +520,8 @@ export function enterApp(name){
   window.renderDerslerGrid?.();
   window.showToast?.(`Hoş geldin, ${name}! 👋`, 'success');
 
-  const canOpenManagement = appState.user.role === 'admin' || appState.user.role === 'ogretmen';
-  document.documentElement.classList.toggle('can-manage-users', canOpenManagement);
-  const adminBtn = document.getElementById('navAdminBtn');
-  if(adminBtn) adminBtn.style.display = canOpenManagement ? '' : 'none';
-  const managementShortcut = document.getElementById('managementShortcutSection');
-  if(managementShortcut) managementShortcut.style.display = canOpenManagement ? '' : 'none';
+  syncManagementNav();
+  setTimeout(syncManagementNav, 150);
 
   if(appState.user && appState.user.email !== 'misafir@demo.com'){
     setTimeout(()=>{ window.loadFromFirestore?.(); }, 500);

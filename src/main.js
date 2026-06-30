@@ -11,6 +11,12 @@ import {
   doLogin, doLogout, doGuest, enterApp,
   addKullanici, deleteKullanici, loadKullaniciList,
   toggleKullaniciActive, resetKullaniciPassword,
+  selectManagedStudent, refreshAssignTopicOptions,
+  createAssignment, updateAssignment, deleteAssignment, loadMyAssignments,
+  refreshEditAssignmentTopicOptions,
+  refreshPlanFasikulOptions, refreshPlanTopicOptions, prefillStudyPlanSlot, openStudyPlanModal, closeStudyPlanModal, shiftStudyPlanWeek, changeStudyPlanWeek,
+  createStudyPlanSlot, clearStudyPlanSlot, dragStudyPlanSlot, dropStudyPlanSlot, startResizeStudyPlanSlot, approveStudyPlanChanges, loadMyStudyPlan,
+  toggleTeacherAssignField, toggleUserFasikulVisibility, applyUserFasikulVisibility,
   ADMIN_EMAIL
 } from './firebase/auth.js';
 import {
@@ -572,7 +578,7 @@ function showPanel(name, navEl){
   document.getElementById('panel-'+name).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(navEl) navEl.classList.add('active');
-  const titles = {dashboard:'Anasayfa',stats:'İstatistikler',hatalilar:'Hatalılar Defteri',profil:'Profilim',admin:'Kullanıcı Yönetimi'};
+  const titles = {dashboard:'Anasayfa',stats:'İstatistikler',hatalilar:'Hatalılar Defteri',profil:'Profilim',admin:'Kullanıcı ve Program Yönetimi'};
   document.getElementById('topBarTitle').textContent = titles[name]||name;
   if(name==='stats' && !window._chartsInited){ initCharts(); window._chartsInited=true; }
   if(name==='dashboard' || name==='stats' || name==='profil') updateDashboard();
@@ -586,13 +592,29 @@ function showPanel(name, navEl){
 const GUEST_DEMO_FASIKUL_IDS = new Set(['lgs-matematik']);
 function isGuestSession(){ return appState.user?.email==='misafir@demo.com'; }
 function visibleFasikullerFor(ders){
-  return isGuestSession()
+  const base = isGuestSession()
     ? (ders.fasikuller||[]).filter(f=>GUEST_DEMO_FASIKUL_IDS.has(f.id))
     : (ders.fasikuller||[]);
+  if(appState.user?.role === 'admin') return base;
+  const hidden = new Set(Array.isArray(appState.user?.hiddenFasikulIds) ? appState.user.hiddenFasikulIds : []);
+  return base.filter(f=>!hidden.has(f.id));
+}
+function perfSummary(bucket){
+  const total = Number(bucket?.total || 0);
+  const correct = Number(bucket?.dogru || 0);
+  const wrong = Number(bucket?.yanlis || 0);
+  const solved = correct + wrong;
+  const accuracy = solved ? Math.round(correct / solved * 100) : 0;
+  const net = correct - wrong * 0.25;
+  return {total, correct, wrong, solved, accuracy, net};
+}
+function formatNet(value){
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 function renderDerslerGrid(){
   const grid = document.getElementById('derslerGrid');
   grid.innerHTML = '';
+  const stats = getDashboardStats();
   const visibleDersler=MANIFEST.dersler.filter(d=>visibleFasikullerFor(d).length>0 || !isGuestSession());
   const sayac = document.getElementById('derslerSayac');
   if(sayac) sayac.textContent = `${visibleDersler.length} ders aktif`;
@@ -600,6 +622,7 @@ function renderDerslerGrid(){
     const card = document.createElement('div');
     card.className = 'ders-card';
     card.dataset.ders = ders.id;
+    const dersPerf = perfSummary(stats.dersler?.[ders.id]);
     const visibleFasikuller=visibleFasikullerFor(ders);
     const fasSayisi = visibleFasikuller.length;
     const soruSayisi = visibleFasikuller.reduce((a,f)=>a+f.soruSayisi,0);
@@ -627,7 +650,7 @@ function renderDerslerGrid(){
         </div>
       </div>
       <div class="ders-card-footer">
-        <span>${visibleFasikuller[0]?.sonCalisma||'—'}</span>
+        <span>${dersPerf.total ? `${dersPerf.solved} çözüldü · %${dersPerf.accuracy} · Net ${formatNet(dersPerf.net)}` : (visibleFasikuller[0]?.sonCalisma||'—')}</span>
         <button class="devam-btn" onclick="openDrawer(event,'${ders.id}')">Devam Et →</button>
       </div>`;
     grid.appendChild(card);
@@ -677,7 +700,8 @@ function renderFasikulCards(fasikuller, ders){
     card.className='fasikul-card';
     card.dataset.fasikulId=fas.id;
     card.draggable=sortable;
-    const soruCozulen = fas._solvedCount ?? Math.floor(fas.soruSayisi * fas.progPct/100);
+    const fasPerf = perfSummary(fas._perf);
+    const soruCozulen = fasPerf.total ? fasPerf.solved : (fas._solvedCount ?? Math.floor(fas.soruSayisi * fas.progPct/100));
     const renkCSS = fas.temaRenk || ders.renk;
     card.style.setProperty('--fas-accent', renkCSS);
     const hasKonular = fas.konular && fas.konular.length > 0;
@@ -718,7 +742,7 @@ function renderFasikulCards(fasikuller, ders){
       </div>
       <div class="fasikul-card-footer">
         <div class="fasikul-card-stats">
-          <span>${soruCozulen}/${fas.soruSayisi} çözüldü</span>
+          <span>${fasPerf.total ? `${soruCozulen}/${fas.soruSayisi} · %${fasPerf.accuracy} · Net ${formatNet(fasPerf.net)}` : `${soruCozulen}/${fas.soruSayisi} çözüldü`}</span>
           ${jsonPillHtml}
         </div>
         <button class="fasikul-open-btn" style="background:${renkCSS};color:#fff"
@@ -872,9 +896,13 @@ function updateDashboard(){
     window._chartWeekly.data.datasets[0].data=weeklyData;
     window._chartWeekly.update();
   }
-  const topicRows=Object.entries(stats.konular||{}).map(([name,k])=>{
+  const konuDagilimi = stats.konuDagilimi || stats.konular || {};
+  const topicRows=Object.entries(konuDagilimi).map(([name,k])=>{
     const d=Number(k.dogru||0), y=Number(k.yanlis||0), solved=d+y;
-    return {name,dogru:d,yanlis:y,solved,accuracy:solved?Math.round(d/solved*100):0,net:d-y*0.25};
+    const label = k.dersAd && k.fasikulAd
+      ? `${k.dersAd} / ${k.fasikulAd} / ${k.konu || k.label || name}`
+      : (k.konu || k.label || name);
+    return {name:label,dogru:d,yanlis:y,solved,accuracy:solved?Math.round(d/solved*100):0,net:d-y*0.25};
   }).filter(r=>r.solved>0).sort((a,b)=>b.solved-a.solved);
   if(window._chartRadar){
     const radarRows=topicRows.slice(0,6);
@@ -912,7 +940,7 @@ function updateDashboard(){
     {icon:'📚',name:'Kitap Kurdu',earned:total>=100},
     {icon:'🚀',name:'Roket Hızı',earned:weeklyTotal>=50},
     {icon:'🏆',name:'Şampiyon',earned:total>=300},
-    {icon:'🧠',name:'Dahi',earned:Object.keys(stats.konular||{}).length>=5},
+    {icon:'🧠',name:'Dahi',earned:Object.keys(konuDagilimi).length>=5},
     {icon:'⭐',name:'Süper Star',earned:total>=500}
   ];
   const bg=document.getElementById('badgesGrid');
@@ -925,17 +953,14 @@ function updateDashboard(){
 // FASİKÜL İLERLEME HESAPLAMA
 // ══════════════════════════════
 function recalcFasikulProgress(){
-  const records = getAnsweredRecords();
-  // Per-fasikül: answered (non-skipped) unique question count
-  const fasikulSolved = {};
-  records.forEach(s => {
-    if (!s.fasikulId || s.skipped) return;
-    fasikulSolved[s.fasikulId] = (fasikulSolved[s.fasikulId] || 0) + 1;
-  });
+  const stats = getDashboardStats();
   MANIFEST.dersler.forEach(ders => {
     let dersTotal = 0, dersSolved = 0;
+    ders._perf = stats.dersler?.[ders.id] || null;
     ders.fasikuller.forEach(fas => {
-      const solved = fasikulSolved[fas.id] || 0;
+      fas._perf = stats.fasikuller?.[fas.id] || null;
+      const p = perfSummary(fas._perf);
+      const solved = p.solved || 0;
       const total = fas.soruSayisi || 0;
       fas._solvedCount = solved;
       fas.progPct = total > 0 ? Math.min(100, Math.round((solved / total) * 100)) : 0;
@@ -2572,6 +2597,30 @@ window.deleteKullanici = deleteKullanici;
 window.loadKullaniciList = loadKullaniciList;
 window.toggleKullaniciActive = toggleKullaniciActive;
 window.resetKullaniciPassword = resetKullaniciPassword;
+window.selectManagedStudent = selectManagedStudent;
+window.refreshAssignTopicOptions = refreshAssignTopicOptions;
+window.createAssignment = createAssignment;
+window.updateAssignment = updateAssignment;
+window.deleteAssignment = deleteAssignment;
+window.loadMyAssignments = loadMyAssignments;
+window.refreshEditAssignmentTopicOptions = refreshEditAssignmentTopicOptions;
+window.refreshPlanFasikulOptions = refreshPlanFasikulOptions;
+window.refreshPlanTopicOptions = refreshPlanTopicOptions;
+window.prefillStudyPlanSlot = prefillStudyPlanSlot;
+window.openStudyPlanModal = openStudyPlanModal;
+window.closeStudyPlanModal = closeStudyPlanModal;
+window.shiftStudyPlanWeek = shiftStudyPlanWeek;
+window.changeStudyPlanWeek = changeStudyPlanWeek;
+window.createStudyPlanSlot = createStudyPlanSlot;
+window.clearStudyPlanSlot = clearStudyPlanSlot;
+window.dragStudyPlanSlot = dragStudyPlanSlot;
+window.dropStudyPlanSlot = dropStudyPlanSlot;
+window.startResizeStudyPlanSlot = startResizeStudyPlanSlot;
+window.approveStudyPlanChanges = approveStudyPlanChanges;
+window.loadMyStudyPlan = loadMyStudyPlan;
+window.toggleTeacherAssignField = toggleTeacherAssignField;
+window.toggleUserFasikulVisibility = toggleUserFasikulVisibility;
+window.applyUserFasikulVisibility = applyUserFasikulVisibility;
 window.DEMO_SNAPSHOT = DEMO_SNAPSHOT;
 window.selectEduDir = selectEduDir;
 window.handleBulkPdfImport = handleBulkPdfImport;

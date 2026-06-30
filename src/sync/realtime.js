@@ -9,6 +9,7 @@ import { _getUserKey } from '../firebase/firestore.js';
 // ══════════════════════════════════════════════════════════
 let _canliUnsub = null;
 let _publishTimer = null;
+const DRAWING_REMOTE_EDIT_GUARD_MS = 3500;
 
 function _liveDeviceId(){
   if(!appState._liveDeviceId)
@@ -99,28 +100,56 @@ function subscribeRealtimeDrawings(uid){
       const data = change.doc.data();
       const key = data.key;
       if(!key || !data.json) return;
+      if(data.by && data.by === appState._cloudDeviceId) return;
       if(appState.drawings[key] === data.json) return;
-      appState.drawings[key] = data.json;
-      if(data.w && data.h) appState.drawingDims[key] = {w:data.w, h:data.h};
+      const remoteUpdatedAt = Number(data.updatedAtMs || Date.parse(data.updatedAt || '')) || 0;
+      const localEditAt = Number(appState.drawingLocalEditAt?.[key] || 0);
+      const lastRemoteAt = Number(appState.drawingRemoteUpdatedAt?.[key] || 0);
+      if(remoteUpdatedAt && lastRemoteAt && remoteUpdatedAt < lastRemoteAt) return;
       const aktifId = appState.aktifFasikul?.id;
       const currentPage = appState.currentPage;
       const currentKey = aktifId ? `drawing_${aktifId}_p${currentPage}` : null;
+      const isCurrentCanvas = currentKey === key;
+      const localIsNewer = localEditAt && remoteUpdatedAt && remoteUpdatedAt < localEditAt;
+      const localIsActive = isCurrentCanvas && Date.now() - (appState._lastCanvasDrawTapAt || 0) < DRAWING_REMOTE_EDIT_GUARD_MS;
+      if(localIsNewer || localIsActive){
+        appState.pendingRemoteDrawings[key] = data;
+        return;
+      }
+      appState.drawings[key] = data.json;
+      if(data.w && data.h) appState.drawingDims[key] = {w:data.w, h:data.h};
       if(currentKey === key){
         const fc = appState.fabricCanvases?.[currentPage] || appState.fabricCanvas;
         if(fc){
-          fc.loadFromJSON(data.json, ()=>{ window.applyDrawingScale?.(fc, key); fc.renderAll(); });
+          loadRealtimeDrawing(fc, key, data);
         } else {
           setTimeout(()=>{
             const fc2 = appState.fabricCanvases?.[currentPage] || appState.fabricCanvas;
-            if(fc2 && appState.drawings[key]) fc2.loadFromJSON(appState.drawings[key], ()=>{ window.applyDrawingScale?.(fc2, key); fc2.renderAll(); });
+            if(fc2 && appState.drawings[key]) loadRealtimeDrawing(fc2, key, data);
           }, 1500);
         }
       }
+      if(remoteUpdatedAt) appState.drawingRemoteUpdatedAt[key] = remoteUpdatedAt;
     });
   }, (err)=>{
     console.warn('Cizimler onSnapshot hatası:',err);
     window.showToast?.('Çizim senkronizasyonu kesildi','error');
   });
+}
+
+function loadRealtimeDrawing(fc, key, data){
+  if(!fc || !data?.json) return;
+  fc._applyingRemoteDrawing = true;
+  try{
+    fc.loadFromJSON(data.json, ()=>{
+      window.applyDrawingScale?.(fc, key);
+      fc._applyingRemoteDrawing = false;
+      fc.renderAll();
+    });
+  }catch(e){
+    fc._applyingRemoteDrawing = false;
+    console.warn('Canlı çizim yüklenemedi:', e);
+  }
 }
 
 function unsubscribeRealtimeDrawings(){

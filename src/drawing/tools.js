@@ -222,6 +222,7 @@ function clearPage(){
     fc.requestRenderAll();
   }
   const key = `drawing_${appState.aktifFasikul?.id}_p${pageNum}`;
+  window.markLocalDrawingEdit?.(pageNum);
   delete appState.drawings[key];
   deleteDrawingCloud(key);
   appState.undoStack.push(fc ? JSON.stringify(fc) : '{}');

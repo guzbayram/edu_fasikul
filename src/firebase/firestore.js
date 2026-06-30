@@ -38,6 +38,72 @@ export function getAnsweredRecords(){
   return records;
 }
 
+function _findManifestContext(fasikulId){
+  const manifest = window.MANIFEST;
+  if(!fasikulId || !manifest?.dersler?.length) return {};
+  for(const ders of manifest.dersler){
+    const fas = (ders.fasikuller||[]).find(f=>f.id === fasikulId);
+    if(fas) return {dersId:ders.id, dersAd:ders.ad, fasikulAd:fas.ad};
+  }
+  return {};
+}
+
+function _recordContext(record){
+  const fallback = _findManifestContext(record?.fasikulId);
+  return {
+    dersId: record?.dersId || record?.ders || fallback.dersId || '',
+    dersAd: record?.dersAd || fallback.dersAd || '',
+    fasikulId: record?.fasikulId || '',
+    fasikulAd: record?.fasikulAd || fallback.fasikulAd || '',
+    konu: record?.konu || 'Diğer',
+    altKonu: record?.altKonu || ''
+  };
+}
+
+function _emptyPerfBucket(label=''){
+  return {label,total:0,dogru:0,yanlis:0,bos:0,timeSec:0,records:[],konular:{},fasikuller:{}};
+}
+
+function _addRecordToBucket(bucket, record){
+  bucket.total++;
+  bucket.timeSec += Number(record.timeSec||0);
+  bucket.records.push(record);
+  if(record.skipped) bucket.bos++;
+  else if(record.correct) bucket.dogru++;
+  else bucket.yanlis++;
+}
+
+function _buildContextStats(records){
+  const dersler = {};
+  const fasikuller = {};
+  const konular = {};
+  records.forEach(record=>{
+    const ctx = _recordContext(record);
+    const dersKey = ctx.dersId || 'bilinmiyor';
+    const fasKey = ctx.fasikulId || 'bilinmiyor';
+    const konuKey = `${dersKey}__${fasKey}__${ctx.konu}`;
+
+    if(!dersler[dersKey]) dersler[dersKey]=_emptyPerfBucket(ctx.dersAd || dersKey);
+    if(!fasikuller[fasKey]) fasikuller[fasKey]=_emptyPerfBucket(ctx.fasikulAd || fasKey);
+    if(!konular[konuKey]) konular[konuKey]={
+      ..._emptyPerfBucket(ctx.konu),
+      dersId:dersKey,
+      dersAd:ctx.dersAd || dersKey,
+      fasikulId:fasKey,
+      fasikulAd:ctx.fasikulAd || fasKey,
+      konu:ctx.konu,
+      altKonu:ctx.altKonu
+    };
+
+    _addRecordToBucket(dersler[dersKey], record);
+    _addRecordToBucket(fasikuller[fasKey], record);
+    _addRecordToBucket(konular[konuKey], record);
+    dersler[dersKey].fasikuller[fasKey]=fasikuller[fasKey];
+    fasikuller[fasKey].konular[konuKey]=konular[konuKey];
+  });
+  return {dersler, fasikuller, konular};
+}
+
 export function _hesaplaIstatistik(records=getAnsweredRecords()){
   let toplam=0, dogru=0, yanlis=0, bos=0;
   const konular = {};
@@ -67,6 +133,7 @@ export function _hesaplaFasikulIstatistik(){
 export function getDashboardStats(){
   const records=getAnsweredRecords();
   const calculated=_hesaplaIstatistik();
+  const contextStats=_buildContextStats(records);
   const cloud=appState.cloudIstatistik||{};
   const cloudTotal=Number(cloud.toplam||0);
   const useCalculated=appState.cloudSolutionsLoaded || cloudTotal===0;
@@ -81,7 +148,12 @@ export function getDashboardStats(){
       konular[k]={dogru:(konular[k]?.dogru||0)+v.dogru,yanlis:(konular[k]?.yanlis||0)+v.yanlis};
     });
   }
-  return {toplam, dogru, yanlis, bos, konular};
+  return {
+    toplam, dogru, yanlis, bos, konular, records,
+    dersler: contextStats.dersler,
+    fasikuller: contextStats.fasikuller,
+    konuDagilimi: contextStats.konular
+  };
 }
 
 // ── Hatalilar Subcollection ───────────────────────────────────────
@@ -133,6 +205,8 @@ function _persistYeniCozumler(uid){
     const cozumRef = window._fsDoc(window._db, 'kullanicilar', uid, 'cozumler', _safeDocId(soruKey));
     window._fsSetDoc(cozumRef, {
       soruKey: soruKey,
+      dersId: s.dersId || appState.aktifDers?.id || '',
+      dersAd: s.dersAd || appState.aktifDers?.ad || '',
       fasikulId: s.fasikulId || appState.aktifFasikul?.id || '',
       fasikulAd: s.fasikulAd || appState.aktifFasikul?.ad || '',
       konu: s.konu || appState.aktifKonu?.ad || '',
@@ -154,8 +228,16 @@ function _persistYeniCozumler(uid){
 export function persistDrawingCloud(key,json,w,h){
   const uid=_getUserKey();
   if(!uid || !json || !window._firestoreReady) return;
+  if(!appState._cloudDeviceId) appState._cloudDeviceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const ref=window._fsDoc(window._db,'kullanicilar',uid,'cizimler',_safeDocId(key));
-  const payload={key,json,fasikulId:appState.aktifFasikul?.id||'',updatedAt:new Date().toISOString()};
+  const now = Date.now();
+  const payload={
+    key,json,
+    fasikulId:appState.aktifFasikul?.id||'',
+    by:appState._cloudDeviceId,
+    updatedAt:new Date(now).toISOString(),
+    updatedAtMs:now
+  };
   if(w) payload.w=w; if(h) payload.h=h;
   window._fsSetDoc(ref,payload,{merge:true})
     .catch(e=>console.warn('Çizim buluta kaydedilemedi:',e));
@@ -229,6 +311,9 @@ export async function loadFromFirestore(){
       if(data.hatalilar)    appState.hatalilar    = data.hatalilar;
       if(data.istatistik) appState.cloudIstatistik = data.istatistik;
       if(data.fasikulIstatistik) appState.cloudFasikulIstatistik = data.fasikulIstatistik;
+      if(appState.user && Array.isArray(data.hiddenFasikulIds)){
+        appState.user.hiddenFasikulIds = data.hiddenFasikulIds;
+      }
       if(data.preferences){
         appState.preferences={...appState.preferences,...data.preferences};
         localStorage.setItem('edu_preferences',JSON.stringify(appState.preferences));
@@ -281,6 +366,7 @@ export async function loadFromFirestore(){
           skipped:c.atladi===true,
           correct_answer:c.dogruCevap||'',
           timeSec:c.sureSaniye||0,
+          dersId:c.dersId||c.ders||'',dersAd:c.dersAd||'',
           fasikulId:c.fasikulId||'',fasikulAd:c.fasikulAd||'',
           konu:c.konu||'',altKonu:c.altKonu||'',zorluk:c.zorluk||'',
           tarih:c.tarih||'',

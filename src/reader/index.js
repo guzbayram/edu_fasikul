@@ -6,6 +6,11 @@ async function openReader(dersId, fasikulId){
     showToast('Misafir hesabında yalnızca demo fasikül kullanılabilir','info');
     return;
   }
+  const hidden = new Set(Array.isArray(appState.user?.hiddenFasikulIds) ? appState.user.hiddenFasikulIds : []);
+  if(appState.user?.role !== 'admin' && hidden.has(fasikulId)){
+    showToast('Bu fasikül hesabınız için gizlenmiş.','info');
+    return;
+  }
   const ders = window.MANIFEST?.dersler.find(d=>d.id===dersId);
   const fasikul = ders?.fasikuller.find(f=>f.id===fasikulId);
   if(!fasikul) return;

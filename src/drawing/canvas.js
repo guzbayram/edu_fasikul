@@ -57,7 +57,19 @@ window.patchGetPointer = patchGetPointer;
 function rememberCanvasDrawTap(){
   if(['pen','tukenmez','marker'].includes(appState.drawTool)){
     appState._lastCanvasDrawTapAt = Date.now();
+    const pageNum = appState.fabricCanvas?._pageNum || appState.currentPage;
+    markLocalDrawingEdit(pageNum);
   }
+}
+
+function drawingKeyForPage(pageNum){
+  return appState.aktifFasikul ? `drawing_${appState.aktifFasikul.id}_p${pageNum}` : '';
+}
+
+function markLocalDrawingEdit(pageNum){
+  const key = drawingKeyForPage(pageNum);
+  if(!key) return;
+  appState.drawingLocalEditAt[key] = Date.now();
 }
 
 function bindCanvasDrawTapMemory(fc){
@@ -85,7 +97,7 @@ function initFabricForPage(canvasEl, w, h, pageNum){
   }
 
   // Kayıtlı çizim varsa yükle
-  const key = `drawing_${appState.aktifFasikul?.id}_p${pageNum}`;
+  const key = drawingKeyForPage(pageNum);
   const saved = appState.drawings[key];
   if(saved){ try{ fc.loadFromJSON(saved, ()=>{ applyDrawingScale(fc, key); applyTool(appState.drawTool); fc.renderAll(); }); }catch(e){} }
 
@@ -109,9 +121,14 @@ function initFabricForPage(canvasEl, w, h, pageNum){
     if(appState._saveTimeout) clearTimeout(appState._saveTimeout);
     appState._saveTimeout = setTimeout(()=>saveDrawingForPage(pageNum), 800);
   };
-  fc.on('object:added', debounceSave);
-  fc.on('object:modified', debounceSave);
-  fc.on('object:removed', debounceSave);
+  const localCanvasChanged = ()=>{
+    if(fc._loadingDrawing || fc._applyingRemoteDrawing) return;
+    markLocalDrawingEdit(pageNum);
+    debounceSave();
+  };
+  fc.on('object:added', localCanvasChanged);
+  fc.on('object:modified', localCanvasChanged);
+  fc.on('object:removed', localCanvasChanged);
   fc.on('text:changed', opt=>{
     stabilizeTextSelection(opt?.target);
     debounceSave();
@@ -124,13 +141,13 @@ function initFabricForPage(canvasEl, w, h, pageNum){
     }
     saveDrawingForPage(pageNum);
   });
-  fc.on('object:added', ()=>{ appState.undoStack.push(JSON.stringify(fc)); appState.redoStack=[]; });
+  fc.on('object:added', ()=>{ if(!fc._loadingDrawing && !fc._applyingRemoteDrawing){ appState.undoStack.push(JSON.stringify(fc)); appState.redoStack=[]; } });
 }
 
 function saveDrawingForPage(pageNum){
   const fc = appState.fabricCanvases[pageNum];
   if(!fc || !appState.aktifFasikul) return;
-  const key = `drawing_${appState.aktifFasikul.id}_p${pageNum}`;
+  const key = drawingKeyForPage(pageNum);
   const json=JSON.stringify(fc);
   appState.drawings[key] = json;
   appState.drawingDims[key] = { w: fc.width, h: fc.height };
@@ -233,16 +250,24 @@ function initFabricOnCanvas(canvasEl, w, h){
   appState.fabricCanvas = fc;
 
   // Sayfa için kayıtlı çizim varsa yükle
-  const key = `drawing_${appState.aktifFasikul?.id}_p${appState.currentPage}`;
+  const key = drawingKeyForPage(appState.currentPage);
   const saved = appState.drawings[key];
   if(saved){
-    try{ fc.loadFromJSON(saved, ()=>{ applyDrawingScale(fc, key); fc.renderAll(); }); }catch(e){}
+    try{
+      fc._loadingDrawing = true;
+      fc.loadFromJSON(saved, ()=>{ applyDrawingScale(fc, key); fc._loadingDrawing = false; fc.renderAll(); });
+    }catch(e){ fc._loadingDrawing = false; }
   }
 
   // Otomatik kayıt (800ms debounce)
-  fc.on('object:added', debounceAutoSave);
-  fc.on('object:modified', debounceAutoSave);
-  fc.on('object:removed', debounceAutoSave);
+  const localCanvasChanged = ()=>{
+    if(fc._loadingDrawing || fc._applyingRemoteDrawing) return;
+    markLocalDrawingEdit(appState.currentPage);
+    debounceAutoSave();
+  };
+  fc.on('object:added', localCanvasChanged);
+  fc.on('object:modified', localCanvasChanged);
+  fc.on('object:removed', localCanvasChanged);
   fc.on('text:changed', opt=>{
     stabilizeTextSelection(opt?.target);
     debounceAutoSave();
@@ -257,7 +282,7 @@ function initFabricOnCanvas(canvasEl, w, h){
   });
 
   // Undo stack
-  fc.on('object:added', ()=>{ appState.undoStack.push(JSON.stringify(fc)); appState.redoStack=[]; });
+  fc.on('object:added', ()=>{ if(!fc._loadingDrawing && !fc._applyingRemoteDrawing){ appState.undoStack.push(JSON.stringify(fc)); appState.redoStack=[]; } });
   fc.on('mouse:down', rememberCanvasDrawTap);
 
   applyTool(appState.drawTool);
@@ -273,7 +298,7 @@ function saveDrawing(){
   if(appState.viewMode === 'scroll'){
     // Tüm render edilmiş sayfaları kaydet
     Object.entries(appState.fabricCanvases).forEach(([pn, fc])=>{
-      const key = `drawing_${appState.aktifFasikul.id}_p${pn}`;
+      const key = drawingKeyForPage(pn);
       const json=JSON.stringify(fc);
       appState.drawings[key] = json;
       appState.drawingDims[key] = { w: fc.width, h: fc.height };
@@ -282,7 +307,7 @@ function saveDrawing(){
   } else {
     const fc = appState.fabricCanvas;
     if(!fc) return;
-    const key = `drawing_${appState.aktifFasikul.id}_p${appState.currentPage}`;
+    const key = drawingKeyForPage(appState.currentPage);
     const json=JSON.stringify(fc);
     appState.drawings[key] = json;
     appState.drawingDims[key] = { w: fc.width, h: fc.height };
@@ -325,6 +350,7 @@ function flushActiveTextEditing(){
 // main.js ve diğer modüller window.xxx ile çağırabilsin
 window.initFabricForPage = initFabricForPage;
 window.saveDrawingForPage = saveDrawingForPage;
+window.markLocalDrawingEdit = markLocalDrawingEdit;
 window.attachTextInputGuard = attachTextInputGuard;
 window.setObjectsInteractive = setObjectsInteractive;
 window.clearToolHandlers = clearToolHandlers;

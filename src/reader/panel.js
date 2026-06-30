@@ -112,10 +112,16 @@ function renderTekSoruKartEl(card, sorular, idx){
 
   card.innerHTML = `
     <div class="tsk-header">
-      <span class="tsk-no">${isKonuKart ? `K.${s.no}` : `S.${s.no}`}</span>
+      <div class="tsk-header-left">
+        <span class="tsk-no">${isKonuKart ? `K.${s.no}` : `S.${s.no}`}</span>
+      </div>
+      <div class="tsk-header-center">
+        ${isVideoFasikul() ? `<span class="tsk-page" style="cursor:default">${s.grup==='assessment'?'Değerlendirme':'Alıştırma'}</span>` : `<span class="tsk-page" onclick="goToPage(${s.sayfa||appState.currentPage})">Sayfa ${s.sayfa||'?'}</span>`}
+      </div>
+      <div class="tsk-header-right">
+        <span class="tsk-copy" onclick="copySoruKart()" title="Soruyu kopyala — Gemini/GPT/Claude'a yapıştırıp çözüm sor">📋</span>
+      </div>
       <span class="tsk-badge ${badgeClass}">${badgeTxt}</span>
-      ${isVideoFasikul() ? `<span class="tsk-page" style="cursor:default">${s.grup==='assessment'?'Değerlendirme':'Alıştırma'}</span>` : `<span class="tsk-page" onclick="goToPage(${s.sayfa||appState.currentPage})">Sayfa ${s.sayfa||'?'}</span>`}
-      <span class="tsk-copy" onclick="copySoruKart()" title="Soruyu kopyala — Gemini/GPT/Claude'a yapıştırıp çözüm sor">📋</span>
       <span class="tsk-star ${isStarred?'on':''}" onclick="toggleStar('${s._uid||s.no}')" title="Yıldızla">⭐</span>
     </div>
     <div class="tsk-body">
@@ -458,6 +464,41 @@ function showCozum(idx){
   showToast(`S.${soru.no} çözümü açıldı`,'info');
 }
 
+function toggleCozumKart(){
+  const flow = getQuestionFlow();
+  if(!flow.length){
+    showToast('Bu fasikülde çözüm kartı akışı bulunmuyor.','info');
+    return;
+  }
+  const flowIdx = findQuestionFlowIndexByPage(appState.currentPage);
+  const item = flow[flowIdx] || null;
+  if(!item){
+    showToast('Bu sayfa için soru kartı bulunamadı.','info');
+    return;
+  }
+  const parentKonu = getParentKonuForAlt(item.alt);
+  const solutionAlt = getSolutionAltKonu(parentKonu);
+  const solution = getSolutionForQuestion(item.alt, item.soru)
+    || (solutionAlt?.sorular||[]).find(s=>s.no === item.soru.no);
+  const solutionPage = item.soru.cozumSayfa || solution?.sayfa;
+  if(!solutionPage){
+    showToast('Bu soru için çözüm kartı bulunmuyor.','info');
+    return;
+  }
+  const onSolutionPage = appState.currentPage === solutionPage || isCozumAltKonu(appState.aktifAltKonu);
+  if(onSolutionPage){
+    goToFlowItem(item);
+    showToast(`S.${item.soru.no} sorusu açıldı`,'info');
+    return;
+  }
+  appState.aktifAltKonu = item.alt;
+  appState.activeQuestionIdx = item.localIdx;
+  appState._suppressNavSync = true;
+  goToPage(solutionPage);
+  setTimeout(()=>{ appState._suppressNavSync = false; }, 800);
+  showToast(`S.${item.soru.no} çözüm kartı açıldı`,'info');
+}
+
 // ── Konu/Alt Konu Dropdown (toolbar sol üst) ──────────────────────────
 function toggleKonuDropdown(){
   const menu = document.getElementById('konuDdMenu');
@@ -609,6 +650,8 @@ function selectAnswer(soruNo, selected, correct, idx){
     correct:        isCorrect,
     correct_answer: correct,
     timeSec:        timeSec,
+    dersId:         appState.aktifDers?.id     || '',
+    dersAd:         appState.aktifDers?.ad     || '',
     fasikulId:      appState.aktifFasikul?.id  || '',
     fasikulAd:      appState.aktifFasikul?.ad  || '',
     konu:           appState.aktifKonu?.ad     || '',
@@ -660,6 +703,7 @@ function skipQuestion(soruNo, idx){
     answered:true, selected:null, correct:false, skipped:true,
     correct_answer:aktifSoru?.cevap||'',
     timeSec:appState.timerSec,
+    dersId:appState.aktifDers?.id||'',dersAd:appState.aktifDers?.ad||'',
     fasikulId:appState.aktifFasikul?.id||'',fasikulAd:appState.aktifFasikul?.ad||'',
     konu:appState.aktifKonu?.ad||'',altKonu:appState.aktifAltKonu?.ad||'',
     zorluk:aktifSoru?.zorluk||'',tarih:new Date().toISOString(),_synced:false
@@ -2048,6 +2092,7 @@ window.getSolutionAltKonu = getSolutionAltKonu;
 window.getQuestionAltKonular = getQuestionAltKonular;
 window.getQuestionFlow = getQuestionFlow;
 window.getSolutionForQuestion = getSolutionForQuestion;
+window.toggleCozumKart = toggleCozumKart;
 window.findQuestionFlowIndexByPage = findQuestionFlowIndexByPage;
 window.goToFlowItem = goToFlowItem;
 window.changeQuestionPage = changeQuestionPage;

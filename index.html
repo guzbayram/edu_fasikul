@@ -320,6 +320,36 @@
             <input type="file" id="eduPdfFilesInput" accept=".pdf,application/pdf" multiple style="display:none" onchange="handleBulkPdfImport(this)">
           </div>
           <div id="eduDirFileList" style="display:none;margin-top:10px"></div>
+          <div class="admin-github-json-tools" id="profileGithubJsonTools" style="display:none">
+            <div class="admin-github-json-head">
+              <div>
+                <b>Admin: GitHub JSON Fasikülü</b>
+                <span>GitHub'a yüklediğiniz JSON dosyasını yeni fasikül olarak tanıtın.</span>
+              </div>
+              <div class="admin-github-json-actions">
+                <button type="button" onclick="downloadOrnekJson('B')">Kart JSON Örneği</button>
+                <button type="button" onclick="downloadOrnekJson('A')">Çoklu Soru Örneği</button>
+              </div>
+            </div>
+            <div class="admin-github-json-grid">
+              <label>Ders
+                <select id="profileGithubJsonDers"></select>
+              </label>
+              <label>JSON dosya adı
+                <input id="profileGithubJsonFile" type="text" placeholder="ornek-fasikul-kart.json">
+              </label>
+              <label>PDF dosya adı
+                <input id="profileGithubPdfFile" type="text" placeholder="ornek-fasikul-kart.pdf">
+              </label>
+              <label>Fasikül ID
+                <input id="profileGithubSourceId" type="text" placeholder="Boş bırakılırsa otomatik">
+              </label>
+            </div>
+            <div class="admin-github-json-footer">
+              <div id="profileGithubJsonStatus">JSON dosyasını GitHub reposuna ekledikten sonra burada tanıtın.</div>
+              <button type="button" onclick="addProfileGithubJsonFasikul()">GitHub JSON'u Ekle</button>
+            </div>
+          </div>
         </div>
         <button class="btn-danger" onclick="doLogout()">Çıkış Yap</button>
         </div>
@@ -372,6 +402,21 @@
         <div id="adminUserList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
           <div style="color:var(--text-muted);font-size:13px">Yükleniyor…</div>
         </div>
+      </div>
+      <div class="profil-section admin-json-upload-card" id="adminJsonUploadSection">
+        <div class="profil-section-title">📦 Yeni Fasikül JSON Yükle</div>
+        <div class="admin-json-upload-help">
+          Profil sayfasındaki PDF dosyalarından bağımsız olarak yeni fasikül JSON'u yükleyin. PDF adı JSON dosyasıyla aynı kabul edilir.
+        </div>
+        <div class="admin-json-upload-form">
+          <label>Ders
+            <select id="adminJsonDersSelect"></select>
+          </label>
+          <label>JSON Dosyası
+            <input type="file" id="adminJsonFasikulInput" accept=".json,application/json" onchange="handleAdminJsonFasikulUpload(this)">
+          </label>
+        </div>
+        <div class="admin-json-upload-result" id="adminJsonUploadResult">Henüz JSON seçilmedi.</div>
       </div>
       <div class="profil-section program-management-section" style="max-width:1180px;margin-top:20px">
         <div class="profil-section-title">🎓 Öğrenci Takibi, Görev ve Çalışma Programı</div>

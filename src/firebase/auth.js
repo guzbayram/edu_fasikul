@@ -522,6 +522,7 @@ export function enterApp(name){
 
   syncManagementNav();
   setTimeout(syncManagementNav, 150);
+  window.refreshProfileGithubJsonTools?.();
 
   if(appState.user && appState.user.email !== 'misafir@demo.com'){
     setTimeout(()=>{ window.loadFromFirestore?.(); }, 500);

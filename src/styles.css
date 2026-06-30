@@ -1498,6 +1498,12 @@ body.reader-locked{overflow:hidden!important}
   .managed-student-head{grid-template-columns:1fr}
 }
 
+@media (max-width:720px){
+  .admin-github-json-head,.admin-github-json-footer{flex-direction:column;align-items:stretch}
+  .admin-github-json-actions{justify-content:flex-start}
+  .admin-github-json-grid{grid-template-columns:1fr}
+}
+
 .pref-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
 .pref-row:last-child{border-bottom:none}
 .pref-label{font-size:14px;color:var(--text-1)}
@@ -1505,6 +1511,38 @@ body.reader-locked{overflow:hidden!important}
 .pref-toggle{background:var(--mat);color:#fff}
 .pref-toggle.off{background:var(--bg-4);color:var(--text-muted)}
 .pref-chip{background:var(--mat-dim);color:var(--mat);cursor:default}
+.admin-github-json-tools{
+  margin-top:14px;padding:14px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--bg-1)
+}
+.admin-github-json-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px
+}
+.admin-github-json-head b{display:block;font-size:13px;color:var(--text-0);margin-bottom:3px}
+.admin-github-json-head span,.admin-github-json-footer div{font-size:12px;color:var(--text-muted);line-height:1.45}
+.admin-github-json-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.admin-github-json-actions button,.admin-github-json-footer button{
+  min-height:36px;padding:0 12px;border:1px solid var(--border);
+  border-radius:var(--radius-sm);background:var(--bg-3);color:var(--text-1);
+  font-size:12px;font-weight:700;cursor:pointer
+}
+.admin-github-json-footer button{background:var(--mat);border-color:var(--mat);color:#fff}
+.admin-github-json-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.admin-github-json-grid label{
+  display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:800;
+  color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em
+}
+.admin-github-json-grid input,.admin-github-json-grid select{
+  width:100%;height:40px;padding:0 11px;border:1px solid var(--border);
+  border-radius:var(--radius-sm);background:var(--bg-2);color:var(--text-0);
+  font-size:13px;font-weight:650;text-transform:none;letter-spacing:0
+}
+.admin-github-json-footer{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px
+}
+.admin-github-json-footer div[data-tone="success"]{color:var(--green)}
+.admin-github-json-footer div[data-tone="error"]{color:var(--red)}
+.admin-github-json-footer div[data-tone="loading"]{color:var(--yellow)}
 .goal-slider-wrap{width:160px}
 .goal-slider-wrap input[type=range]{width:100%;accent-color:var(--mat)}
 .goal-val{font-size:13px;font-weight:700;color:var(--mat);text-align:right;margin-top:4px}

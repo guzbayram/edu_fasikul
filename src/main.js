@@ -230,6 +230,39 @@ const BUNDLED_FASIKUL_SOURCES = [
   {id:'matematik-destek',dersId:'mat',json:'12-Matematik (Destek)-kart.json',pdf:'12-Matematik (Destek).pdf',type:'video'}
 ];
 
+const CUSTOM_GITHUB_FASIKUL_SOURCES_KEY = 'edu_custom_github_fasikul_sources';
+function safeParseCustomGithubSources(){
+  try{
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_GITHUB_FASIKUL_SOURCES_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter(s=>s?.id && s?.dersId && s?.json && s?.pdf) : [];
+  }catch(e){ return []; }
+}
+function mergeCustomGithubSources(){
+  safeParseCustomGithubSources().forEach(source=>{
+    const existingIndex = BUNDLED_FASIKUL_SOURCES.findIndex(s=>s.id===source.id || s.json===source.json);
+    if(existingIndex >= 0) BUNDLED_FASIKUL_SOURCES[existingIndex] = {...BUNDLED_FASIKUL_SOURCES[existingIndex], ...source, custom:true};
+    else BUNDLED_FASIKUL_SOURCES.push({...source, custom:true});
+  });
+}
+function saveCustomGithubSource(source){
+  const sources = safeParseCustomGithubSources();
+  const clean = {
+    id: source.id,
+    dersId: source.dersId,
+    json: source.json,
+    pdf: source.pdf,
+    type: source.type || undefined,
+    custom: true
+  };
+  const existingIndex = sources.findIndex(s=>s.id===clean.id || s.json===clean.json);
+  if(existingIndex >= 0) sources[existingIndex] = clean;
+  else sources.push(clean);
+  localStorage.setItem(CUSTOM_GITHUB_FASIKUL_SOURCES_KEY, JSON.stringify(sources));
+  mergeCustomGithubSources();
+  return clean;
+}
+mergeCustomGithubSources();
+
 // Demo verilerinin orijinal anlık görüntüsü (Demo Verileri açma/kapama ve sıfırlama için)
 const DEMO_SNAPSHOT = MANIFEST.dersler.map(d=>({
   id:d.id, progPct:d.progPct,
@@ -582,6 +615,7 @@ function showPanel(name, navEl){
   document.getElementById('topBarTitle').textContent = titles[name]||name;
   if(name==='stats' && !window._chartsInited){ initCharts(); window._chartsInited=true; }
   if(name==='dashboard' || name==='stats' || name==='profil') updateDashboard();
+  if(name==='profil') refreshProfileGithubJsonTools();
   if(name==='hatalilar') renderHatalilar();
   if(name==='admin') loadKullaniciList();
 }
@@ -1285,6 +1319,7 @@ async function updateEduDirUI(){
   const helpEl = document.getElementById('eduDirHelp');
   const titleEl = document.getElementById('eduDirTitle');
   if(!statusEl) return;
+  refreshProfileGithubJsonTools();
 
   const allFasikuller = MANIFEST.dersler.flatMap(d=>d.fasikuller).filter(f=>f.pdfFile||FASIKUL_PDF_MAP[f.id]);
 
@@ -2178,6 +2213,94 @@ function slugifyId(text, fallback='item'){
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || fallback;
 }
 
+function derivePdfNameFromJson(jsonName){
+  return String(jsonName || '').replace(/\.json$/i, '.pdf');
+}
+function ensureGithubSourceId(jsonName, fallback='fasikul'){
+  return slugifyId(String(jsonName || '').replace(/\.json$/i, ''), fallback);
+}
+function populateProfileGithubDersSelect(){
+  const select = document.getElementById('profileGithubJsonDers');
+  if(!select) return;
+  const current = select.value || 'mat';
+  select.innerHTML = MANIFEST.dersler.map(d=>`<option value="${d.id}">${d.ad}</option>`).join('');
+  if([...select.options].some(o=>o.value===current)) select.value = current;
+}
+function isProfileGithubAdmin(){
+  const email = String(appState.user?.email || '').toLowerCase();
+  const roleText = document.getElementById('profileSub')?.textContent || '';
+  return appState.user?.role === 'admin' || email === ADMIN_EMAIL || roleText.includes('Yönetici');
+}
+function refreshProfileGithubJsonTools(){
+  const box = document.getElementById('profileGithubJsonTools');
+  if(!box) return;
+  const isAdmin = isProfileGithubAdmin();
+  box.style.display = isAdmin ? '' : 'none';
+  if(isAdmin) populateProfileGithubDersSelect();
+}
+function setProfileGithubJsonStatus(message, tone='muted'){
+  const el = document.getElementById('profileGithubJsonStatus');
+  if(!el) return;
+  el.textContent = message;
+  el.dataset.tone = tone;
+}
+async function addProfileGithubJsonFasikul(){
+  if(!isProfileGithubAdmin()){
+    showToast('Bu işlem sadece admin için açık','error');
+    return;
+  }
+  const dersId = document.getElementById('profileGithubJsonDers')?.value || 'mat';
+  const jsonInput = document.getElementById('profileGithubJsonFile');
+  const pdfInput = document.getElementById('profileGithubPdfFile');
+  const idInput = document.getElementById('profileGithubSourceId');
+  const json = (jsonInput?.value || '').trim().normalize('NFC');
+  const pdf = ((pdfInput?.value || '').trim() || derivePdfNameFromJson(json)).normalize('NFC');
+  const id = ensureGithubSourceId((idInput?.value || '').trim() || json, 'github-fasikul');
+  if(!json.endsWith('.json')){
+    setProfileGithubJsonStatus('JSON dosya adı .json ile bitmeli.', 'error');
+    showToast('JSON dosya adı .json olmalı','error');
+    return;
+  }
+  if(!pdf.endsWith('.pdf')){
+    setProfileGithubJsonStatus('PDF dosya adı .pdf ile bitmeli.', 'error');
+    showToast('PDF dosya adı .pdf olmalı','error');
+    return;
+  }
+  const source = { id, dersId, json, pdf, custom:true };
+  setProfileGithubJsonStatus('GitHub JSON okunuyor ve format kontrol ediliyor...', 'loading');
+  try{
+    bundledSourceCache.delete(json);
+    const raw = await readBundledJson(source);
+    if(!raw || !Array.isArray(raw.konular)){
+      setProfileGithubJsonStatus('Geçersiz JSON: konular dizisi bulunamadı veya dosya okunamadı.', 'error');
+      showToast('JSON okunamadı veya format hatalı','error');
+      return;
+    }
+    const savedSource = saveCustomGithubSource(source);
+    let ders = MANIFEST.dersler.find(d=>d.id===dersId);
+    if(!ders){
+      const cfg = BUNDLED_DERS_CONFIG[dersId] || BUNDLED_DERS_CONFIG.mat;
+      ders = {id:dersId,ad:cfg.ad,ikon:cfg.ikon,renk:cfg.renk,progPct:0,fasikuller:[]};
+      MANIFEST.dersler.push(ders);
+    }
+    let fas = ders.fasikuller.find(f=>f.id===id || f.jsonFile===json);
+    if(!fas){
+      fas = {id,progPct:0,sonCalisma:'Henüz çalışılmadı',temaRenk:null};
+      ders.fasikuller.push(fas);
+    }
+    hydrateBundledFasikul(fas, raw, savedSource);
+    FASIKUL_PDF_MAP[fas.id] = pdf;
+    persistManifest();
+    renderDerslerGrid();
+    refreshProfileGithubJsonTools();
+    setProfileGithubJsonStatus(`Eklendi: ${fas.ad} (${fas.soruSayisi || 0} soru). PDF dosyası klasörde "${pdf}" adıyla bulunmalı.`, 'success');
+    showToast('GitHub JSON fasikülü eklendi ✓','success');
+  }catch(e){
+    setProfileGithubJsonStatus(`JSON eklenemedi: ${e.message || e}`, 'error');
+    showToast('JSON eklenemedi','error');
+  }
+}
+
 function normalizeFasikulKonular(konular){
   if(!Array.isArray(konular)) return [];
   konular.forEach((k, konuIdx) => {
@@ -2554,10 +2677,13 @@ window.closeDrawer = closeDrawer;
 window.openDrawer = openDrawer;
 window.renderFasikulCards = renderFasikulCards;
 window.normalizeFasikulKonular = normalizeFasikulKonular;
+window.refreshProfileGithubJsonTools = refreshProfileGithubJsonTools;
+window.addProfileGithubJsonFasikul = addProfileGithubJsonFasikul;
 window.normalizePdfFileName = normalizePdfFileName;
 window.readBundledJson = readBundledJson;
 window.bundledSourceCache = bundledSourceCache;
 window.hydrateBundledFasikul = hydrateBundledFasikul;
+window.saveCustomGithubSource = saveCustomGithubSource;
 window.isGuestSession = isGuestSession;
 window.closeModal = closeModal;
 window.ensureReaderPdfLoaded = ensureReaderPdfLoaded;

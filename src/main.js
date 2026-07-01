@@ -227,7 +227,8 @@ const BUNDLED_FASIKUL_SOURCES = [
   {id:'tyt-kampi-tum-dersler',dersId:'tyt',json:'7-tyt-kampi-tum-dersler-kart.json',pdf:'7-tyt-kampi-tum-dersler-kart.pdf'},
   {id:'tyt-denemeleri-1',dersId:'tyt',json:'8-tyt-denemeleri-1-cards.json',pdf:'8-tyt-denemeleri-1-cards.pdf'},
   {id:'tyt-denemeleri-2',dersId:'tyt',json:'9-tyt-denemeleri-2-cards.json',pdf:'9-tyt-denemeleri-2-cards.pdf'},
-  {id:'matematik-destek',dersId:'mat',json:'12-Matematik (Destek)-kart.json',pdf:'12-Matematik (Destek).pdf',type:'video'}
+  {id:'matematik-destek',dersId:'mat',json:'12-Matematik (Destek)-kart.json',pdf:'12-Matematik (Destek).pdf',type:'video'},
+  {id:'mof-10-matematik-5',dersId:'mat',json:'Möf-10.Sınıf-Matematik-5.Fasikül.json',pdf:'Möf-10.Sınıf-Matematik-5.Fasikül.pdf'}
 ];
 
 const CUSTOM_GITHUB_FASIKUL_SOURCES_KEY = 'edu_custom_github_fasikul_sources';
